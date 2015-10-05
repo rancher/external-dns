@@ -33,21 +33,21 @@ func main() {
 			log.Debug("No changes in version: %s", newVersion)
 		} else {
 			log.Debug("Version has been changed. Old version: %s. New version: %s.", version, newVersion)
-			dnsEntries, err := GetExternalDnsRecords(m)
+			our_records, err := GetExternalDnsRecords(m)
 			if err != nil {
 				log.Errorf("Error reading external dns entries: %v", err)
 			}
-			log.Info(dnsEntries)
+			log.Infof("External DNS entries from metadata: %v", our_records)
 			if *providerName != "" {
 				log.Infof("Provider name %s", *providerName)
 			}
 			provider := providers.GetProvider(*providerName)
-			records, err := provider.GetRecords()
+			provider_records, err := provider.GetRecords()
 			if err != nil {
 				log.Errorf("Provider error reading external dns entries: %v", err)
 			}
 
-			log.Info(records)
+			log.Infof("External DNS records from provider: %v", provider_records)
 
 			version = newVersion
 		}
@@ -70,7 +70,7 @@ func GetExternalDnsRecords(m metadata.MetadataHandler) (map[string]providers.Ext
 		if container.StackName == stack.Name {
 			hostUUID := container.HostUUID
 			if len(hostUUID) == 0 {
-				log.Infof("Container's %v host_uuid is empty", container.Name)
+				log.Debugf("Container's %v host_uuid is empty", container.Name)
 				continue
 			}
 			host, err := m.GetHost(hostUUID)
@@ -93,6 +93,5 @@ func GetExternalDnsRecords(m metadata.MetadataHandler) (map[string]providers.Ext
 			dnsEntries[domainName] = dnsEntry
 		}
 	}
-	log.Infof("External DNS entries %v", dnsEntries)
 	return dnsEntries, nil
 }

@@ -7,7 +7,7 @@ import (
 type Provider interface {
 	AddRecord(record ExternalDnsEntry) error
 	RemoveRecord(record ExternalDnsEntry) error
-	GetRecords() (string, error)
+	GetRecords() ([]ExternalDnsEntry, error)
 }
 
 type ExternalDnsEntry struct {
