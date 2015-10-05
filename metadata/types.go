@@ -31,4 +31,13 @@ type Container struct {
 	StackName   string            `json:"stack_name"`
 	Labels      map[string]string `json:"labels"`
 	CreateIndex int               `json:"create_index"`
+	HostUUID    string            `json:"host_uuid"`
+}
+
+type Host struct {
+	Name    string            `json:"name"`
+	AgentIP string            `json:"agent_ip"`
+	HostId  int               `json:"host_id"`
+	Labels  map[string]string `json:"labels"`
+	UUID    string            `json:"uuid"`
 }

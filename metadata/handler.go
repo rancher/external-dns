@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 )
@@ -38,7 +39,7 @@ func (m *MetadataHandler) GetVersion() (string, error) {
 	return string(resp[:]), nil
 }
 
-func (m *MetadataHandler) GetStack() (Stack, error) {
+func (m *MetadataHandler) GetSelfStack() (Stack, error) {
 	resp, err := m.SendRequest("/self/stack")
 	var stack Stack
 	if err != nil {
@@ -78,4 +79,33 @@ func (m *MetadataHandler) GetContainers() ([]Container, error) {
 		return containers, err
 	}
 	return containers, nil
+}
+
+func (m *MetadataHandler) GetHosts() ([]Host, error) {
+	resp, err := m.SendRequest("/hosts")
+	var hosts []Host
+	if err != nil {
+		return hosts, err
+	}
+
+	err = json.Unmarshal(resp, &hosts)
+	if err != nil {
+		return hosts, err
+	}
+	return hosts, nil
+}
+
+func (m *MetadataHandler) GetHost(UUID string) (Host, error) {
+	var host Host
+	hosts, err := m.GetHosts()
+	if err != nil {
+		return host, err
+	}
+	for _, host := range hosts {
+		if host.UUID == UUID {
+			return host, nil
+		}
+	}
+
+	return host, fmt.Errorf("could not find host by UUID %v", UUID)
 }
