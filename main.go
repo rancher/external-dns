@@ -30,7 +30,7 @@ func init() {
 
 func main() {
 	log.Infof("Starting Rancher External DNS powered by %s", provider.GetName())
-	version := ""
+	version := "init"
 	selfStack, err := m.GetSelfStack()
 	if err != nil {
 		log.Errorf("Error reading stack info: %v", err)
@@ -45,26 +45,26 @@ func main() {
 			log.Debug("No changes in version: %s", newVersion)
 		} else {
 			log.Debug("Version has been changed. Old version: %s. New version: %s.", version, newVersion)
-			ChangeDnsRecords(m)
+			UpdateDnsRecords(m)
 			version = newVersion
 		}
 		time.Sleep(time.Duration(poll) * time.Millisecond)
 	}
 }
 
-func ChangeDnsRecords(m metadata.MetadataHandler) error {
+func UpdateDnsRecords(m metadata.MetadataHandler) error {
 	metadataRecs, err := GetMetadataDnsRecords(m)
 	if err != nil {
 		log.Errorf("Error reading external dns entries: %v", err)
 	}
-	log.Infof("DNS records from metadata: %v", metadataRecs)
+	log.Debugf("DNS records from metadata: %v", metadataRecs)
 
 	providerRecs, err := GetProviderDnsRecords()
 	if err != nil {
 		log.Errorf("Provider error reading dns entries: %v", err)
 	}
 
-	log.Infof("DNS records from provider: %v", providerRecs)
+	log.Debugf("DNS records from provider: %v", providerRecs)
 	addMissingRecords(metadataRecs, providerRecs)
 	removeExtraRecords(metadataRecs, providerRecs)
 	updateExistingRecords(metadataRecs, providerRecs)
@@ -78,6 +78,12 @@ func addMissingRecords(metadataRecs map[string]providers.DnsRecord, providerRecs
 		if _, ok := providerRecs[key]; !ok {
 			toAdd = append(toAdd, metadataRecs[key])
 		}
+	}
+	if len(toAdd) == 0 {
+		log.Debug("No DNS records to add")
+		return nil
+	} else {
+		log.Infof("DNS records to add: %v", toAdd)
 	}
 	for _, value := range toAdd {
 		log.Infof("Adding dns record: %v", value)
@@ -123,6 +129,14 @@ func updateExistingRecords(metadataRecs map[string]providers.DnsRecord, provider
 			}
 		}
 	}
+
+	if len(toUpdate) == 0 {
+		log.Debug("No DNS records to update")
+		return nil
+	} else {
+		log.Infof("DNS records to update: %v", toUpdate)
+	}
+
 	for _, value := range toUpdate {
 		log.Infof("Updating dns record: %v", value)
 		err := provider.AddRecord(value)
@@ -142,6 +156,12 @@ func removeExtraRecords(metadataRecs map[string]providers.DnsRecord, providerRec
 		}
 	}
 
+	if len(toRemove) == 0 {
+		log.Debug("No DNS records to remove")
+		return nil
+	} else {
+		log.Infof("DNS records to remove: %v", toRemove)
+	}
 	for _, value := range toRemove {
 		log.Infof("Removing dns record: %v", value)
 		err := provider.RemoveRecord(value)

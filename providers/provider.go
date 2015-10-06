@@ -2,11 +2,12 @@ package providers
 
 import (
 	"fmt"
+	log "github.com/Sirupsen/logrus"
+	"os"
 )
 
-const (
-	//FIXME - set the root domain name based on the env vars
-	RootDomainName = "rancher-test.com."
+var (
+	RootDomainName string
 )
 
 type Provider interface {
@@ -27,6 +28,14 @@ type DnsRecord struct {
 var (
 	providers map[string]Provider
 )
+
+func init() {
+	name := os.Getenv("EXTERNAL_DNS_ROOT_DOMAIN")
+	if len(name) == 0 {
+		log.Fatalf("EXTERNAL_DNS_ROOT_DOMAIN is not set")
+	}
+	RootDomainName = name
+}
 
 func GetProvider(name string) Provider {
 	if provider, ok := providers[name]; ok {

@@ -6,10 +6,11 @@ import (
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/route53"
 	"math"
+	"os"
 )
 
 const (
-	Name = "route53"
+	name = "route53"
 )
 
 var (
@@ -27,8 +28,15 @@ func init() {
 	if err != nil {
 		log.Fatal("AWS failed to authenticate due to %v", err)
 	}
-	//FIXME - set the region based on environment variable
-	region = aws.USWest2
+	regionName := os.Getenv("AWS_REGION")
+	if len(regionName) == 0 {
+		log.Fatalf("AWS_REGION is not set")
+	}
+	r, ok := aws.Regions[regionName]
+	if !ok {
+		log.Fatal("Could not find region by name %s", regionName)
+	}
+	region = r
 	client = route53.New(auth, region)
 
 	zoneResp, err := client.ListHostedZones("", math.MaxInt64)
@@ -42,18 +50,24 @@ func init() {
 			break
 		}
 	}
-
-	//TODO - create a hosted zone if doesn't exist
 	if hostedZone == nil {
-		log.Fatalf("Failed to find hosted zone for root domain %s", RootDomainName)
+		log.Infof("Creating missing hosting zone for root domain %s ", RootDomainName)
+		req := route53.CreateHostedZoneRequest{Name: RootDomainName, Comment: "Updated by Rancher"}
+		resp, err := client.CreateHostedZone(&req)
+		if err != nil {
+			log.Fatalf("Failed to create missing hosted zone for root domain %s due to %v", RootDomainName, err)
+		}
+		hostedZone = &resp.HostedZone
 	}
+
+	log.Infof("Configured %s with hosted zone \"%s\" in region \"%s\" ", route53Handler.GetName(), RootDomainName, regionName)
 }
 
 type Route53Handler struct {
 }
 
 func (*Route53Handler) GetName() string {
-	return Name
+	return name
 }
 
 func (r *Route53Handler) AddRecord(record DnsRecord) error {
@@ -81,12 +95,12 @@ func (*Route53Handler) GetRecords() ([]DnsRecord, error) {
 	var records []DnsRecord
 	opts := route53.ListOpts{}
 
-	rec_resp, err := client.ListResourceRecordSets(hostedZone.ID, &opts)
+	resp, err := client.ListResourceRecordSets(hostedZone.ID, &opts)
 	if err != nil {
 		return records, fmt.Errorf("Route53 API call has failed due to %v", err)
 	}
 
-	for _, rec := range rec_resp.Records {
+	for _, rec := range resp.Records {
 		record := DnsRecord{DomainName: rec.Name, Records: rec.Records, Type: rec.Type, TTL: rec.TTL}
 		records = append(records, record)
 	}
