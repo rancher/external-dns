@@ -8,16 +8,14 @@ import (
 	"math"
 )
 
+const (
+	Name = "route53"
+)
+
 var (
 	client     *route53.Route53
 	hostedZone *route53.HostedZone
 	region     aws.Region
-)
-
-const (
-	//FIXME - set the root domain name based on the env vars
-	//QUESTION: rootDomainName || hostedZoneId?
-	rootDomainName = "rancher-test.com."
 )
 
 func init() {
@@ -39,36 +37,48 @@ func init() {
 	}
 
 	for _, zone := range zoneResp.HostedZones {
-		if zone.Name == rootDomainName {
+		if zone.Name == RootDomainName {
 			hostedZone = &zone
 			break
 		}
 	}
 
-	//FIXME - create a hosted zone if doesn't exist
+	//TODO - create a hosted zone if doesn't exist
 	if hostedZone == nil {
-		log.Fatalf("Failed to find hosted zone for root domain %s", rootDomainName)
+		log.Fatalf("Failed to find hosted zone for root domain %s", RootDomainName)
 	}
 }
 
 type Route53Handler struct {
 }
 
-func (*Route53Handler) AddRecord(record ExternalDnsEntry) error {
-	recordSet := route53.ResourceRecordSet{Name: record.DomainName, Type: "A", Records: record.ARecords}
-	update := route53.Change{"UPSERT", recordSet}
+func (*Route53Handler) GetName() string {
+	return Name
+}
+
+func (r *Route53Handler) AddRecord(record DnsRecord) error {
+	return r.updateRecord(record, "UPSERT")
+}
+
+func (r *Route53Handler) UpdateRecord(record DnsRecord) error {
+	return r.updateRecord(record, "UPSERT")
+}
+
+func (r *Route53Handler) RemoveRecord(record DnsRecord) error {
+	return r.updateRecord(record, "DELETE")
+}
+
+func (*Route53Handler) updateRecord(record DnsRecord, action string) error {
+	recordSet := route53.ResourceRecordSet{Name: record.DomainName, Type: record.Type, Records: record.Records, TTL: record.TTL}
+	update := route53.Change{action, recordSet}
 	changes := []route53.Change{update}
 	req := route53.ChangeResourceRecordSetsRequest{Comment: "Updated by Rancher", Changes: changes}
-	client.ChangeResourceRecordSets(hostedZone.ID, &req)
-	return nil
+	_, err := client.ChangeResourceRecordSets(hostedZone.ID, &req)
+	return err
 }
 
-func (*Route53Handler) RemoveRecord(record ExternalDnsEntry) error {
-	return nil
-}
-
-func (*Route53Handler) GetRecords() ([]ExternalDnsEntry, error) {
-	var records []ExternalDnsEntry
+func (*Route53Handler) GetRecords() ([]DnsRecord, error) {
+	var records []DnsRecord
 	opts := route53.ListOpts{}
 
 	rec_resp, err := client.ListResourceRecordSets(hostedZone.ID, &opts)
@@ -77,7 +87,7 @@ func (*Route53Handler) GetRecords() ([]ExternalDnsEntry, error) {
 	}
 
 	for _, rec := range rec_resp.Records {
-		record := ExternalDnsEntry{DomainName: rec.Name, ARecords: rec.Records}
+		record := DnsRecord{DomainName: rec.Name, Records: rec.Records, Type: rec.Type, TTL: rec.TTL}
 		records = append(records, record)
 	}
 

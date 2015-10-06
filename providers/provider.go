@@ -4,15 +4,24 @@ import (
 	"fmt"
 )
 
+const (
+	//FIXME - set the root domain name based on the env vars
+	RootDomainName = "rancher-test.com."
+)
+
 type Provider interface {
-	AddRecord(record ExternalDnsEntry) error
-	RemoveRecord(record ExternalDnsEntry) error
-	GetRecords() ([]ExternalDnsEntry, error)
+	AddRecord(record DnsRecord) error
+	RemoveRecord(record DnsRecord) error
+	UpdateRecord(record DnsRecord) error
+	GetRecords() ([]DnsRecord, error)
+	GetName() string
 }
 
-type ExternalDnsEntry struct {
+type DnsRecord struct {
 	DomainName string
-	ARecords   []string
+	Records    []string
+	Type       string
+	TTL        int
 }
 
 var (
