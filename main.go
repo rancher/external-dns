@@ -2,9 +2,11 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/rancher/external-dns/metadata"
 	"github.com/rancher/external-dns/providers"
+	"os"
 	"strings"
 	"time"
 )
@@ -17,25 +19,40 @@ const (
 
 var (
 	providerName = flag.String("provider", "", "External provider name")
+	debug        = flag.Bool("debug", false, "Debug")
+	logFile      = flag.String("log", "", "Log file")
 	stack        metadata.Stack
 	provider     providers.Provider
 	m            metadata.MetadataHandler
 )
 
-func init() {
-	provider = providers.GetProvider(*providerName)
+func setEnv() {
 	flag.Parse()
+	provider = providers.GetProvider(*providerName)
+	if *debug {
+		log.SetLevel(log.DebugLevel)
+	}
+	if *logFile != "" {
+		if output, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); err != nil {
+			log.Fatalf("Failed to log to file %s: %v", *logFile, err)
+		} else {
+			log.SetOutput(output)
+		}
+	}
 	m = metadata.NewHandler(metadataUrl)
-}
-
-func main() {
-	log.Infof("Starting Rancher External DNS powered by %s", provider.GetName())
-	version := "init"
 	selfStack, err := m.GetSelfStack()
 	if err != nil {
 		log.Errorf("Error reading stack info: %v", err)
 	}
 	stack = selfStack
+}
+
+func main() {
+	log.Infof("Starting Rancher External DNS service")
+	setEnv()
+	log.Infof("Powered by %s", provider.GetName())
+
+	version := "init"
 
 	for {
 		newVersion, err := m.GetVersion()
@@ -45,21 +62,24 @@ func main() {
 			log.Debug("No changes in version: %s", newVersion)
 		} else {
 			log.Debug("Version has been changed. Old version: %s. New version: %s.", version, newVersion)
-			UpdateDnsRecords(m)
+			err := updateDnsRecords(m)
+			if err != nil {
+				log.Errorf("Failed to update DNS records due to %v", err)
+			}
 			version = newVersion
 		}
 		time.Sleep(time.Duration(poll) * time.Millisecond)
 	}
 }
 
-func UpdateDnsRecords(m metadata.MetadataHandler) error {
-	metadataRecs, err := GetMetadataDnsRecords(m)
+func updateDnsRecords(m metadata.MetadataHandler) error {
+	metadataRecs, err := getMetadataDnsRecords(m)
 	if err != nil {
 		log.Errorf("Error reading external dns entries: %v", err)
 	}
 	log.Debugf("DNS records from metadata: %v", metadataRecs)
 
-	providerRecs, err := GetProviderDnsRecords()
+	providerRecs, err := getProviderDnsRecords()
 	if err != nil {
 		log.Errorf("Provider error reading dns entries: %v", err)
 	}
@@ -89,8 +109,7 @@ func addMissingRecords(metadataRecs map[string]providers.DnsRecord, providerRecs
 		log.Infof("Adding dns record: %v", value)
 		err := provider.AddRecord(value)
 		if err != nil {
-			log.Errorf("Failed to add DNS record due to %v", err)
-			return err
+			return fmt.Errorf("Failed to add DNS record %v due to %v", value, err)
 		}
 	}
 	return nil
@@ -141,8 +160,7 @@ func updateExistingRecords(metadataRecs map[string]providers.DnsRecord, provider
 		log.Infof("Updating dns record: %v", value)
 		err := provider.AddRecord(value)
 		if err != nil {
-			log.Errorf("Failed to update DNS record due to %v", err)
-			return err
+			return fmt.Errorf("Failed to update DNS record %v due to %v", value, err)
 		}
 	}
 	return nil
@@ -166,14 +184,13 @@ func removeExtraRecords(metadataRecs map[string]providers.DnsRecord, providerRec
 		log.Infof("Removing dns record: %v", value)
 		err := provider.RemoveRecord(value)
 		if err != nil {
-			log.Errorf("Failed to remove DNS record due to %v", err)
-			return err
+			return fmt.Errorf("Failed to remove DNS record %v due to %v", value, err)
 		}
 	}
 	return nil
 }
 
-func GetProviderDnsRecords() (map[string]providers.DnsRecord, error) {
+func getProviderDnsRecords() (map[string]providers.DnsRecord, error) {
 	allRecords, err := provider.GetRecords()
 	if err != nil {
 		return nil, err
@@ -189,7 +206,7 @@ func GetProviderDnsRecords() (map[string]providers.DnsRecord, error) {
 	return ourRecords, nil
 }
 
-func GetMetadataDnsRecords(m metadata.MetadataHandler) (map[string]providers.DnsRecord, error) {
+func getMetadataDnsRecords(m metadata.MetadataHandler) (map[string]providers.DnsRecord, error) {
 
 	containers, err := m.GetContainers()
 	if err != nil {

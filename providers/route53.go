@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	name = "route53"
+	name = "Route53"
 )
 
 var (
@@ -24,26 +24,44 @@ func init() {
 	if err := RegisterProvider("route53", route53Handler); err != nil {
 		log.Fatal("Could not register route53 provider")
 	}
+
+	if err := setRegion(); err != nil {
+		log.Fatalf("Failed to set region due to %v", err)
+	}
+
+	if err := setHostedZone(); err != nil {
+		log.Fatalf("Failed to set hosted zone for root domain %s due to %v", RootDomainName, err)
+	}
+
+	log.Infof("Configured %s with hosted zone \"%s\" in region \"%s\" ", route53Handler.GetName(), RootDomainName, region.Name)
+}
+
+func setRegion() error {
+
+	regionName := os.Getenv("AWS_REGION")
+	if len(regionName) == 0 {
+		return fmt.Errorf("AWS_REGION is not set")
+	}
+
+	r, ok := aws.Regions[regionName]
+	if !ok {
+		return fmt.Errorf("Could not find region by name %s", regionName)
+	}
+	region = r
 	auth, err := aws.EnvAuth()
 	if err != nil {
 		log.Fatal("AWS failed to authenticate due to %v", err)
 	}
-	regionName := os.Getenv("AWS_REGION")
-	if len(regionName) == 0 {
-		log.Fatalf("AWS_REGION is not set")
-	}
-	r, ok := aws.Regions[regionName]
-	if !ok {
-		log.Fatal("Could not find region by name %s", regionName)
-	}
-	region = r
 	client = route53.New(auth, region)
 
+	return nil
+}
+
+func setHostedZone() error {
 	zoneResp, err := client.ListHostedZones("", math.MaxInt64)
 	if err != nil {
 		log.Fatalf("Failed to list hosted zones due to %v", err)
 	}
-
 	for _, zone := range zoneResp.HostedZones {
 		if zone.Name == RootDomainName {
 			hostedZone = &zone
@@ -55,12 +73,11 @@ func init() {
 		req := route53.CreateHostedZoneRequest{Name: RootDomainName, Comment: "Updated by Rancher"}
 		resp, err := client.CreateHostedZone(&req)
 		if err != nil {
-			log.Fatalf("Failed to create missing hosted zone for root domain %s due to %v", RootDomainName, err)
+			return fmt.Errorf("Failed to add missing hosted zone %v", err)
 		}
 		hostedZone = &resp.HostedZone
 	}
-
-	log.Infof("Configured %s with hosted zone \"%s\" in region \"%s\" ", route53Handler.GetName(), RootDomainName, regionName)
+	return nil
 }
 
 type Route53Handler struct {
