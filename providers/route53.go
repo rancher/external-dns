@@ -26,11 +26,11 @@ func init() {
 	}
 
 	if err := setRegion(); err != nil {
-		log.Fatalf("Failed to set region due to %v", err)
+		log.Fatalf("Failed to set region: %v", err)
 	}
 
 	if err := setHostedZone(); err != nil {
-		log.Fatalf("Failed to set hosted zone for root domain %s due to %v", RootDomainName, err)
+		log.Fatalf("Failed to set hosted zone for root domain %s: %v", RootDomainName, err)
 	}
 
 	log.Infof("Configured %s with hosted zone \"%s\" in region \"%s\" ", route53Handler.GetName(), RootDomainName, region.Name)
@@ -50,7 +50,7 @@ func setRegion() error {
 	region = r
 	auth, err := aws.EnvAuth()
 	if err != nil {
-		log.Fatal("AWS failed to authenticate due to %v", err)
+		log.Fatal("AWS failed to authenticate: %v", err)
 	}
 	client = route53.New(auth, region)
 
@@ -60,7 +60,7 @@ func setRegion() error {
 func setHostedZone() error {
 	zoneResp, err := client.ListHostedZones("", math.MaxInt64)
 	if err != nil {
-		log.Fatalf("Failed to list hosted zones due to %v", err)
+		log.Fatalf("Failed to list hosted zones: %v", err)
 	}
 	for _, zone := range zoneResp.HostedZones {
 		if zone.Name == RootDomainName {
@@ -88,18 +88,18 @@ func (*Route53Handler) GetName() string {
 }
 
 func (r *Route53Handler) AddRecord(record DnsRecord) error {
-	return r.updateRecord(record, "UPSERT")
+	return r.changeRecord(record, "UPSERT")
 }
 
 func (r *Route53Handler) UpdateRecord(record DnsRecord) error {
-	return r.updateRecord(record, "UPSERT")
+	return r.changeRecord(record, "UPSERT")
 }
 
 func (r *Route53Handler) RemoveRecord(record DnsRecord) error {
-	return r.updateRecord(record, "DELETE")
+	return r.changeRecord(record, "DELETE")
 }
 
-func (*Route53Handler) updateRecord(record DnsRecord, action string) error {
+func (*Route53Handler) changeRecord(record DnsRecord, action string) error {
 	recordSet := route53.ResourceRecordSet{Name: record.DomainName, Type: record.Type, Records: record.Records, TTL: record.TTL}
 	update := route53.Change{action, recordSet}
 	changes := []route53.Change{update}
@@ -114,7 +114,7 @@ func (*Route53Handler) GetRecords() ([]DnsRecord, error) {
 
 	resp, err := client.ListResourceRecordSets(hostedZone.ID, &opts)
 	if err != nil {
-		return records, fmt.Errorf("Route53 API call has failed due to %v", err)
+		return records, fmt.Errorf("Route53 API call has failed: %v", err)
 	}
 
 	for _, rec := range resp.Records {

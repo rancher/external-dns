@@ -8,6 +8,7 @@ import (
 	"github.com/rancher/external-dns/providers"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -15,6 +16,16 @@ const (
 	//FIXME - change metadata url to rancher-metadata
 	metadataUrl = "http://localhost:90"
 	poll        = 1000
+)
+
+type Op struct {
+	Name string
+}
+
+var (
+	Add    = Op{Name: "Add"}
+	Remove = Op{Name: "Remove"}
+	Update = Op{Name: "Update"}
 )
 
 var (
@@ -37,6 +48,10 @@ func setEnv() {
 			log.Fatalf("Failed to log to file %s: %v", *logFile, err)
 		} else {
 			log.SetOutput(output)
+			formatter := &log.TextFormatter{
+				FullTimestamp: true,
+			}
+			log.SetFormatter(formatter)
 		}
 	}
 	m = metadata.NewHandler(metadataUrl)
@@ -64,7 +79,7 @@ func main() {
 			log.Debug("Version has been changed. Old version: %s. New version: %s.", version, newVersion)
 			err := updateDnsRecords(m)
 			if err != nil {
-				log.Errorf("Failed to update DNS records due to %v", err)
+				log.Errorf("Failed to update DNS records: %v", err)
 			}
 			version = newVersion
 		}
@@ -85,10 +100,18 @@ func updateDnsRecords(m metadata.MetadataHandler) error {
 	}
 
 	log.Debugf("DNS records from provider: %v", providerRecs)
-	addMissingRecords(metadataRecs, providerRecs)
-	removeExtraRecords(metadataRecs, providerRecs)
-	updateExistingRecords(metadataRecs, providerRecs)
-
+	err = addMissingRecords(metadataRecs, providerRecs)
+	if err != nil {
+		log.Errorf("Failed to add missing records: %v", err)
+	}
+	err = removeExtraRecords(metadataRecs, providerRecs)
+	if err != nil {
+		log.Errorf("Failed to remove extra records: %v", err)
+	}
+	err = updateExistingRecords(metadataRecs, providerRecs)
+	if err != nil {
+		log.Errorf("Failed to update existing records records: %v", err)
+	}
 	return nil
 }
 
@@ -105,13 +128,47 @@ func addMissingRecords(metadataRecs map[string]providers.DnsRecord, providerRecs
 	} else {
 		log.Infof("DNS records to add: %v", toAdd)
 	}
-	for _, value := range toAdd {
-		log.Infof("Adding dns record: %v", value)
-		err := provider.AddRecord(value)
-		if err != nil {
-			return fmt.Errorf("Failed to add DNS record %v due to %v", value, err)
-		}
+	return updateRecords(toAdd, &Add)
+}
+
+func updateRecords(toChange []providers.DnsRecord, op *Op) error {
+	values := make(chan providers.DnsRecord)
+	var wg sync.WaitGroup
+	wg.Add(len(toChange))
+
+	for _, value := range toChange {
+		go func(value providers.DnsRecord) {
+			defer wg.Done()
+			values <- value
+		}(value)
 	}
+
+	go func() error {
+		for value := range values {
+			switch *op {
+			case Add:
+				log.Infof("Adding dns record: %v", value)
+				err := provider.AddRecord(value)
+				if err != nil {
+					return fmt.Errorf("Failed to add DNS record %v: %v", value, err)
+				}
+			case Remove:
+				log.Infof("Removing dns record: %v", value)
+				err := provider.RemoveRecord(value)
+				if err != nil {
+					return fmt.Errorf("Failed to remove DNS record %v: %v", value, err)
+				}
+			case Update:
+				log.Infof("Updating dns record: %v", value)
+				err := provider.UpdateRecord(value)
+				if err != nil {
+					return fmt.Errorf("Failed to update DNS record %v: %v", value, err)
+				}
+			}
+		}
+		return nil
+	}()
+	wg.Wait()
 	return nil
 }
 
@@ -156,14 +213,7 @@ func updateExistingRecords(metadataRecs map[string]providers.DnsRecord, provider
 		log.Infof("DNS records to update: %v", toUpdate)
 	}
 
-	for _, value := range toUpdate {
-		log.Infof("Updating dns record: %v", value)
-		err := provider.AddRecord(value)
-		if err != nil {
-			return fmt.Errorf("Failed to update DNS record %v due to %v", value, err)
-		}
-	}
-	return nil
+	return updateRecords(toUpdate, &Update)
 }
 
 func removeExtraRecords(metadataRecs map[string]providers.DnsRecord, providerRecs map[string]providers.DnsRecord) error {
@@ -180,14 +230,7 @@ func removeExtraRecords(metadataRecs map[string]providers.DnsRecord, providerRec
 	} else {
 		log.Infof("DNS records to remove: %v", toRemove)
 	}
-	for _, value := range toRemove {
-		log.Infof("Removing dns record: %v", value)
-		err := provider.RemoveRecord(value)
-		if err != nil {
-			return fmt.Errorf("Failed to remove DNS record %v due to %v", value, err)
-		}
-	}
-	return nil
+	return updateRecords(toRemove, &Remove)
 }
 
 func getProviderDnsRecords() (map[string]providers.DnsRecord, error) {
