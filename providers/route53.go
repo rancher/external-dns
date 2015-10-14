@@ -2,7 +2,7 @@ package providers
 
 import (
 	"fmt"
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/route53"
 	"math"
@@ -19,21 +19,21 @@ var (
 	region     aws.Region
 )
 
-func init() {
+func main() {
 	route53Handler := &Route53Handler{}
 	if err := RegisterProvider("route53", route53Handler); err != nil {
-		log.Fatal("Could not register route53 provider")
+		logrus.Fatal("Could not register route53 provider")
 	}
 
 	if err := setRegion(); err != nil {
-		log.Fatalf("Failed to set region: %v", err)
+		logrus.Fatalf("Failed to set region: %v", err)
 	}
 
 	if err := setHostedZone(); err != nil {
-		log.Fatalf("Failed to set hosted zone for root domain %s: %v", RootDomainName, err)
+		logrus.Fatalf("Failed to set hosted zone for root domain %s: %v", RootDomainName, err)
 	}
 
-	log.Infof("Configured %s with hosted zone \"%s\" in region \"%s\" ", route53Handler.GetName(), RootDomainName, region.Name)
+	logrus.Infof("Configured %s with hosted zone \"%s\" in region \"%s\" ", route53Handler.GetName(), RootDomainName, region.Name)
 }
 
 func setRegion() error {
@@ -50,7 +50,7 @@ func setRegion() error {
 	region = r
 	auth, err := aws.EnvAuth()
 	if err != nil {
-		log.Fatal("AWS failed to authenticate: %v", err)
+		logrus.Fatal("AWS failed to authenticate: %v", err)
 	}
 	client = route53.New(auth, region)
 
@@ -60,7 +60,7 @@ func setRegion() error {
 func setHostedZone() error {
 	zoneResp, err := client.ListHostedZones("", math.MaxInt64)
 	if err != nil {
-		log.Fatalf("Failed to list hosted zones: %v", err)
+		logrus.Fatalf("Failed to list hosted zones: %v", err)
 	}
 	for _, zone := range zoneResp.HostedZones {
 		if zone.Name == RootDomainName {
@@ -69,7 +69,7 @@ func setHostedZone() error {
 		}
 	}
 	if hostedZone == nil {
-		log.Infof("Creating missing hosting zone for root domain %s ", RootDomainName)
+		logrus.Infof("Creating missing hosting zone for root domain %s ", RootDomainName)
 		req := route53.CreateHostedZoneRequest{Name: RootDomainName, Comment: "Updated by Rancher"}
 		resp, err := client.CreateHostedZone(&req)
 		if err != nil {

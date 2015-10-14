@@ -45,8 +45,8 @@ func (m *MetadataHandler) GetSelfStack() (Stack, error) {
 	if err != nil {
 		return stack, err
 	}
-	err = json.Unmarshal(resp, &stack)
-	if err != nil {
+
+	if err = json.Unmarshal(resp, &stack); err != nil {
 		return stack, err
 	}
 
@@ -60,8 +60,7 @@ func (m *MetadataHandler) GetServices() ([]Service, error) {
 		return services, err
 	}
 
-	err = json.Unmarshal(resp, &services)
-	if err != nil {
+	if err = json.Unmarshal(resp, &services); err != nil {
 		return services, err
 	}
 	return services, nil
@@ -74,8 +73,7 @@ func (m *MetadataHandler) GetContainers() ([]Container, error) {
 		return containers, err
 	}
 
-	err = json.Unmarshal(resp, &containers)
-	if err != nil {
+	if err = json.Unmarshal(resp, &containers); err != nil {
 		return containers, err
 	}
 	return containers, nil
@@ -88,8 +86,7 @@ func (m *MetadataHandler) GetHosts() ([]Host, error) {
 		return hosts, err
 	}
 
-	err = json.Unmarshal(resp, &hosts)
-	if err != nil {
+	if err = json.Unmarshal(resp, &hosts); err != nil {
 		return hosts, err
 	}
 	return hosts, nil
