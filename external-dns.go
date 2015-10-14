@@ -38,7 +38,7 @@ func UpdateDnsRecords(m metadata.MetadataHandler) error {
 
 func addMissingRecords(metadataRecs map[string]providers.DnsRecord, providerRecs map[string]providers.DnsRecord) error {
 	var toAdd []providers.DnsRecord
-	for key, _ := range metadataRecs {
+	for key := range metadataRecs {
 		if _, ok := providerRecs[key]; !ok {
 			toAdd = append(toAdd, metadataRecs[key])
 		}
@@ -93,7 +93,7 @@ func updateRecords(toChange []providers.DnsRecord, op *Op) error {
 
 func updateExistingRecords(metadataRecs map[string]providers.DnsRecord, providerRecs map[string]providers.DnsRecord) error {
 	var toUpdate []providers.DnsRecord
-	for key, _ := range metadataRecs {
+	for key := range metadataRecs {
 		if _, ok := providerRecs[key]; ok {
 			metadataR := make(map[string]struct{}, len(metadataRecs[key].Records))
 			for _, s := range metadataRecs[key].Records {
@@ -108,12 +108,12 @@ func updateExistingRecords(metadataRecs map[string]providers.DnsRecord, provider
 			if len(metadataR) != len(providerR) {
 				update = true
 			} else {
-				for key, _ := range metadataR {
+				for key := range metadataR {
 					if _, ok := providerR[key]; !ok {
 						update = true
 					}
 				}
-				for key, _ := range providerR {
+				for key := range providerR {
 					if _, ok := metadataR[key]; !ok {
 						update = true
 					}
@@ -137,7 +137,7 @@ func updateExistingRecords(metadataRecs map[string]providers.DnsRecord, provider
 
 func removeExtraRecords(metadataRecs map[string]providers.DnsRecord, providerRecs map[string]providers.DnsRecord) error {
 	var toRemove []providers.DnsRecord
-	for key, _ := range providerRecs {
+	for key := range providerRecs {
 		if _, ok := metadataRecs[key]; !ok {
 			toRemove = append(toRemove, providerRecs[key])
 		}
@@ -158,7 +158,7 @@ func getProviderDnsRecords() (map[string]providers.DnsRecord, error) {
 		return nil, err
 	}
 	ourRecords := make(map[string]providers.DnsRecord, len(allRecords))
-	joins := []string{stack.EnvironmentName, providers.RootDomainName}
+	joins := []string{EnvironmentName, providers.RootDomainName}
 	suffix := strings.ToLower(strings.Join(joins, "."))
 	for _, value := range allRecords {
 		if strings.HasSuffix(value.DomainName, suffix) {
@@ -177,32 +177,31 @@ func getMetadataDnsRecords(m metadata.MetadataHandler) (map[string]providers.Dns
 
 	dnsEntries := make(map[string]providers.DnsRecord)
 	for _, container := range containers {
-		if container.StackName == stack.Name {
-			hostUUID := container.HostUUID
-			if len(hostUUID) == 0 {
-				logrus.Debugf("Container's %v host_uuid is empty", container.Name)
-				continue
-			}
-			host, err := m.GetHost(hostUUID)
-			if err != nil {
-				logrus.Infof("%v", err)
-				continue
-			}
-			ip := host.AgentIP
-			domainNameEntries := []string{container.ServiceName, container.StackName, stack.EnvironmentName, providers.RootDomainName}
-			domainName := strings.ToLower(strings.Join(domainNameEntries, "."))
-			var dnsEntry providers.DnsRecord
-			var records []string
-			if _, ok := dnsEntries[domainName]; ok {
-				records = []string{ip}
-			} else {
-				records = dnsEntries[domainName].Records
-				records = append(records, ip)
-			}
-			dnsEntry = providers.DnsRecord{domainName, records, "A", 300}
-			dnsEntries[domainName] = dnsEntry
+		hostUUID := container.HostUUID
+		if len(hostUUID) == 0 {
+			logrus.Debugf("Container's %v host_uuid is empty", container.Name)
+			continue
 		}
+		host, err := m.GetHost(hostUUID)
+		if err != nil {
+			logrus.Infof("%v", err)
+			continue
+		}
+		ip := host.AgentIP
+		domainNameEntries := []string{container.ServiceName, container.StackName, EnvironmentName, providers.RootDomainName}
+		domainName := strings.ToLower(strings.Join(domainNameEntries, "."))
+		var dnsEntry providers.DnsRecord
+		var records []string
+		if _, ok := dnsEntries[domainName]; ok {
+			records = []string{ip}
+		} else {
+			records = dnsEntries[domainName].Records
+			records = append(records, ip)
+		}
+		dnsEntry = providers.DnsRecord{domainName, records, "A", 300}
+		dnsEntries[domainName] = dnsEntry
 	}
+
 	records := make(map[string]providers.DnsRecord, len(dnsEntries))
 	for _, value := range dnsEntries {
 		records[value.DomainName] = value

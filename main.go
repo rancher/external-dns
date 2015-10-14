@@ -26,12 +26,12 @@ var (
 )
 
 var (
-	providerName = flag.String("provider", "", "External provider name")
-	debug        = flag.Bool("debug", false, "Debug")
-	logFile      = flag.String("log", "", "Log file")
-	stack        metadata.Stack
-	provider     providers.Provider
-	m            metadata.MetadataHandler
+	providerName    = flag.String("provider", "", "External provider name")
+	debug           = flag.Bool("debug", false, "Debug")
+	logFile         = flag.String("log", "", "Log file")
+	EnvironmentName string
+	provider        providers.Provider
+	m               metadata.MetadataHandler
 )
 
 func setEnv() {
@@ -56,7 +56,7 @@ func setEnv() {
 	if err != nil {
 		logrus.Fatalf("Error reading stack info: %v", err)
 	}
-	stack = selfStack
+	EnvironmentName = selfStack.EnvironmentName
 }
 
 func main() {
