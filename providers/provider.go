@@ -2,7 +2,7 @@ package providers
 
 import (
 	"fmt"
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"os"
 )
 
@@ -32,7 +32,7 @@ var (
 func init() {
 	name := os.Getenv("EXTERNAL_DNS_ROOT_DOMAIN")
 	if len(name) == 0 {
-		log.Fatalf("EXTERNAL_DNS_ROOT_DOMAIN is not set")
+		logrus.Fatalf("EXTERNAL_DNS_ROOT_DOMAIN is not set")
 	}
 	RootDomainName = name
 }
