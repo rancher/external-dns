@@ -13,6 +13,8 @@ const (
 	//FIXME - change metadata url to rancher-metadata
 	metadataUrl = "http://localhost:90"
 	poll        = 1000
+	// if metadata wasn't updated in 10 min, force update would be executed
+	forceUpdateInterval = 1
 )
 
 type Op struct {
@@ -65,20 +67,32 @@ func main() {
 	logrus.Infof("Powered by %s", provider.GetName())
 
 	version := "init"
-
+	lastUpdated := time.Now()
 	for {
 		newVersion, err := m.GetVersion()
+		update := false
+
 		if err != nil {
 			logrus.Errorf("Error reading version: %v", err)
-		} else if version == newVersion {
-			logrus.Debug("No changes in version: %s", newVersion)
+		} else if version != newVersion {
+			logrus.Debugf("Version has been changed. Old version: %s. New version: %s.", version, newVersion)
+			version = newVersion
+			update = true
 		} else {
-			logrus.Debug("Version has been changed. Old version: %s. New version: %s.", version, newVersion)
+			logrus.Debugf("No changes in version: %s", newVersion)
+			if time.Since(lastUpdated).Minutes() >= forceUpdateInterval {
+				logrus.Debugf("Executing force update as version hasn't been changed in: %v minutes", forceUpdateInterval)
+				update = true
+			}
+		}
+
+		if update {
 			if err := UpdateDnsRecords(m); err != nil {
 				logrus.Errorf("Failed to update DNS records: %v", err)
 			}
-			version = newVersion
+			lastUpdated = time.Now()
 		}
+
 		time.Sleep(time.Duration(poll) * time.Millisecond)
 	}
 }
