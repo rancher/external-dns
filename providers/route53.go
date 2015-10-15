@@ -19,7 +19,7 @@ var (
 	region     aws.Region
 )
 
-func main() {
+func init() {
 	route53Handler := &Route53Handler{}
 	if err := RegisterProvider("route53", route53Handler); err != nil {
 		logrus.Fatal("Could not register route53 provider")
