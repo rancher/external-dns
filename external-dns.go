@@ -3,13 +3,13 @@ package main
 import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/metadata"
 	"github.com/rancher/external-dns/providers"
+	"github.com/rancher/go-rancher-metadata/metadata"
 	"strings"
 	"sync"
 )
 
-func UpdateDnsRecords(m metadata.MetadataHandler) error {
+func UpdateDnsRecords(m metadata.Handler) error {
 	metadataRecs, err := getMetadataDnsRecords(m)
 	if err != nil {
 		return fmt.Errorf("Error reading external dns entries: %v", err)
@@ -168,7 +168,7 @@ func getProviderDnsRecords() (map[string]providers.DnsRecord, error) {
 	return ourRecords, nil
 }
 
-func getMetadataDnsRecords(m metadata.MetadataHandler) (map[string]providers.DnsRecord, error) {
+func getMetadataDnsRecords(m metadata.Handler) (map[string]providers.DnsRecord, error) {
 
 	containers, err := m.GetContainers()
 	if err != nil {

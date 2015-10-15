@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/metadata"
 	"github.com/rancher/external-dns/providers"
+	"github.com/rancher/go-rancher-metadata/metadata"
 	"os"
 	"time"
 )
@@ -31,7 +31,7 @@ var (
 	logFile         = flag.String("log", "", "Log file")
 	EnvironmentName string
 	provider        providers.Provider
-	m               metadata.MetadataHandler
+	m               metadata.Handler
 )
 
 func setEnv() {
