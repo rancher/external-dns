@@ -34,6 +34,7 @@ var (
 	EnvironmentName string
 	provider        providers.Provider
 	m               metadata.Handler
+	c               *CattleClient
 )
 
 func setEnv() {
@@ -53,12 +54,17 @@ func setEnv() {
 			logrus.SetFormatter(formatter)
 		}
 	}
+
+	// configure metadata client
 	m = metadata.NewHandler(metadataUrl)
 	selfStack, err := m.GetSelfStack()
 	if err != nil {
 		logrus.Fatalf("Error reading stack info: %v", err)
 	}
 	EnvironmentName = selfStack.EnvironmentName
+
+	//configure cattle client
+	c, err = NewCattleClient("", "", "")
 }
 
 func main() {
@@ -87,9 +93,20 @@ func main() {
 		}
 
 		if update {
-			if err := UpdateDnsRecords(m); err != nil {
+			// get records from metadata
+			metadataRecs, err := getMetadataDnsRecords(m)
+			if err != nil {
+				logrus.Errorf("Error reading external dns entries: %v", err)
+			}
+			logrus.Debugf("DNS records from metadata: %v", metadataRecs)
+
+			//update provider
+			if err := UpdateProviderDnsRecords(metadataRecs); err != nil {
 				logrus.Errorf("Failed to update DNS records: %v", err)
 			}
+
+			//update cattle
+
 			lastUpdated = time.Now()
 		}
 
