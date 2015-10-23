@@ -8,6 +8,10 @@
 			"Rev": "418b41d23a1bf978c06faea5313ba194650ac088"
 		},
 		{
+			"ImportPath": "github.com/gorilla/websocket",
+			"Rev": "5ed2f4547d7b9c036541b27a67ecf54e41756997"
+		},
+		{
 			"ImportPath": "github.com/mitchellh/goamz/aws",
 			"Rev": "caaaea8b30ee15616494ee68abd5d8ebbbef05cf"
 		},
@@ -18,6 +22,11 @@
 		{
 			"ImportPath": "github.com/rancher/go-rancher-metadata/metadata",
 			"Rev": "08bc028a34ea0c033e4ca7eb0a209ce0afe6aa3b"
+		},
+		{
+			"ImportPath": "github.com/rancher/go-rancher/client",
+			"Comment": "v0.1.0-82-gaf1ae76",
+			"Rev": "af1ae76dcf072b6342d8e2161e562db9ccd02d9a"
 		},
 		{
 			"ImportPath": "github.com/vaughan0/go-ini",

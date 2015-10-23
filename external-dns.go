@@ -9,18 +9,11 @@ import (
 	"sync"
 )
 
-func UpdateDnsRecords(m metadata.Handler) error {
-	metadataRecs, err := getMetadataDnsRecords(m)
-	if err != nil {
-		return fmt.Errorf("Error reading external dns entries: %v", err)
-	}
-	logrus.Debugf("DNS records from metadata: %v", metadataRecs)
-
+func UpdateProviderDnsRecords(metadataRecs map[string]providers.DnsRecord) error {
 	providerRecs, err := getProviderDnsRecords()
 	if err != nil {
 		return fmt.Errorf("Provider error reading dns entries: %v", err)
 	}
-
 	logrus.Debugf("DNS records from provider: %v", providerRecs)
 	if err = addMissingRecords(metadataRecs, providerRecs); err != nil {
 		return fmt.Errorf("Failed to add missing records: %v", err)
@@ -66,23 +59,29 @@ func updateRecords(toChange []providers.DnsRecord, op *Op) error {
 
 	go func() error {
 		for value := range values {
+			updateCattle := false
 			switch *op {
 			case Add:
 				logrus.Infof("Adding dns record: %v", value)
 				if err := provider.AddRecord(value); err != nil {
-					return fmt.Errorf("Failed to add DNS record %v: %v", value, err)
+					return fmt.Errorf("Failed to add DNS record to provider %v: %v", value, err)
 				}
+				updateCattle = true
 			case Remove:
 				logrus.Infof("Removing dns record: %v", value)
-
 				if err := provider.RemoveRecord(value); err != nil {
-					return fmt.Errorf("Failed to remove DNS record %v: %v", value, err)
+					return fmt.Errorf("Failed to remove DNS record from provider %v: %v", value, err)
 				}
 			case Update:
 				logrus.Infof("Updating dns record: %v", value)
 				if err := provider.UpdateRecord(value); err != nil {
-					return fmt.Errorf("Failed to update DNS record %v: %v", value, err)
+					return fmt.Errorf("Failed to update DNS record to provider %v: %v", value, err)
 				}
+				updateCattle = true
+			}
+			if updateCattle {
+				serviceDnsRecord := convertToServiceDnsRecord(value)
+				c.UpdateServiceDomainName(serviceDnsRecord)
 			}
 		}
 		return nil
@@ -168,43 +167,14 @@ func getProviderDnsRecords() (map[string]providers.DnsRecord, error) {
 	return ourRecords, nil
 }
 
-func getMetadataDnsRecords(m metadata.Handler) (map[string]providers.DnsRecord, error) {
-
-	containers, err := m.GetContainers()
-	if err != nil {
-		return nil, err
+func addToDnsEntries(m metadata.Handler, dnsEntry providers.DnsRecord, dnsEntries map[string]providers.DnsRecord) {
+	var records []string
+	if _, ok := dnsEntries[dnsEntry.DomainName]; ok {
+		records = dnsEntry.Records
+	} else {
+		records = dnsEntries[dnsEntry.DomainName].Records
+		records = append(records, dnsEntry.Records...)
 	}
-
-	dnsEntries := make(map[string]providers.DnsRecord)
-	for _, container := range containers {
-		hostUUID := container.HostUUID
-		if len(hostUUID) == 0 {
-			logrus.Debugf("Container's %v host_uuid is empty", container.Name)
-			continue
-		}
-		host, err := m.GetHost(hostUUID)
-		if err != nil {
-			logrus.Infof("%v", err)
-			continue
-		}
-		ip := host.AgentIP
-		domainNameEntries := []string{container.ServiceName, container.StackName, EnvironmentName, providers.RootDomainName}
-		domainName := strings.ToLower(strings.Join(domainNameEntries, "."))
-		var dnsEntry providers.DnsRecord
-		var records []string
-		if _, ok := dnsEntries[domainName]; ok {
-			records = []string{ip}
-		} else {
-			records = dnsEntries[domainName].Records
-			records = append(records, ip)
-		}
-		dnsEntry = providers.DnsRecord{domainName, records, "A", 300}
-		dnsEntries[domainName] = dnsEntry
-	}
-
-	records := make(map[string]providers.DnsRecord, len(dnsEntries))
-	for _, value := range dnsEntries {
-		records[value.DomainName] = value
-	}
-	return records, nil
+	dnsEntry = providers.DnsRecord{dnsEntry.DomainName, records, "A", 300}
+	dnsEntries[dnsEntry.DomainName] = dnsEntry
 }
