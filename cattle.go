@@ -8,9 +8,9 @@ import (
 )
 
 type ExternalDnsRecord struct {
-	DomainName  string
-	StackName   string
-	ServiceName string
+	DomainName  string `json:"domainName"`
+	StackName   string `json:"stackName"`
+	ServiceName string `json:"serviceName"`
 }
 
 type CattleInterface interface {
@@ -37,10 +37,29 @@ func NewCattleClient(cattleUrl string, cattleAccessKey string, cattleSecretKey s
 	}, nil
 }
 
-func updateCattleServices(metadataRecs map[string]providers.DnsRecord) error {
+func getRecords(metadataRecs map[string]providers.DnsRecord) ([]ExternalDnsRecord, error) {
+	var records []ExternalDnsRecord
 	for domainName := range metadataRecs {
 		splitted := strings.Split(domainName, ".")
-		logrus.Infof("DNS record from metadata: %v, %v, %v", domainName, splitted[0], splitted[1])
+		record := ExternalDnsRecord{domainName, splitted[1], splitted[0]}
+		logrus.Infof("DNS record from metadata: %v, %v, %v", record.DomainName, record.ServiceName, record.StackName)
+		records = append(records, record)
 	}
-	return nil
+	return records, nil
+}
+
+func (c *CattleClient) UpdateExternalDns(metadataRecs map[string]providers.DnsRecord, EnvironmentName string) error {
+	irecords := []interface{}{}
+	records, err := getRecords(metadataRecs)
+	for _, record := range records {
+		logrus.Infof("%v", record.DomainName)
+		irecords = append(irecords, record)
+	}
+	event := &client.ExternalDnsEvent{
+		EventType:  "dns.update",
+		ExternalId: EnvironmentName,
+		DnsRecords: irecords,
+	}
+	_, err = c.rancherClient.ExternalDnsEvent.Create(event)
+	return err
 }

@@ -28,9 +28,10 @@ var (
 )
 
 var (
-	providerName    = flag.String("provider", "", "External provider name")
-	debug           = flag.Bool("debug", false, "Debug")
-	logFile         = flag.String("log", "", "Log file")
+	providerName = flag.String("provider", "", "External provider name")
+	debug        = flag.Bool("debug", false, "Debug")
+	logFile      = flag.String("log", "", "Log file")
+
 	EnvironmentName string
 	provider        providers.Provider
 	m               metadata.Handler
@@ -63,8 +64,27 @@ func setEnv() {
 	}
 	EnvironmentName = selfStack.EnvironmentName
 
+	cattleUrl := os.Getenv("CATTLE_URL")
+	if len(cattleUrl) == 0 {
+		logrus.Fatal("CATTLE_URL is not set")
+	}
+
+	cattleApiKey := os.Getenv("CATTLE_API_KEY")
+	logrus.Info(cattleApiKey)
+	if len(cattleApiKey) == 0 {
+		logrus.Fatal("CATTLE_API_KEY is not set")
+	}
+
+	cattleSecretKey := os.Getenv("CATTLE_SECRET_KEY")
+	if len(cattleSecretKey) == 0 {
+		logrus.Fatal("CATTLE_SECRET_KEY is not set")
+	}
+
 	//configure cattle client
-	c, err = NewCattleClient("", "", "")
+	c, err = NewCattleClient(cattleUrl, cattleApiKey, cattleSecretKey)
+	if err != nil {
+		logrus.Fatalf("Failed to configure cattle client: %v", err)
+	}
 }
 
 func main() {
@@ -102,11 +122,14 @@ func main() {
 
 			//update provider
 			if err := UpdateProviderDnsRecords(metadataRecs); err != nil {
-				logrus.Errorf("Failed to update DNS records: %v", err)
+				logrus.Errorf("Failed to update provider with new DNS records: %v", err)
 			}
 
 			//update cattle
-
+			err = c.UpdateExternalDns(metadataRecs, EnvironmentName)
+			if err != nil {
+				logrus.Errorf("Failed to update rancher with new DNS records: %v", err)
+			}
 			lastUpdated = time.Now()
 		}
 
