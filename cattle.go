@@ -40,3 +40,9 @@ func (c *CattleClient) UpdateServiceDomainName(serviceDnsRecord ServiceDnsRecord
 	_, err := c.rancherClient.ExternalDnsEvent.Create(event)
 	return err
 }
+
+func (c *CattleClient) TestConnect() error {
+	opts := &client.ListOpts{}
+	_, err := c.rancherClient.ExternalDnsEvent.List(opts)
+	return err
+}

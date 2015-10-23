@@ -7,17 +7,17 @@ import (
 	"net/http"
 )
 
-type Handler struct {
+type Client struct {
 	url string
 }
 
-func NewHandler(url string) Handler {
-	return Handler{url}
+func NewClient(url string) *Client {
+	return &Client{url}
 }
 
-func (m *Handler) SendRequest(path string) ([]byte, error) {
+func (m *Client) SendRequest(path string) ([]byte, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", m.url+"/latest"+path, nil)
+	req, err := http.NewRequest("GET", m.url+path, nil)
 	req.Header.Add("Accept", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
@@ -31,7 +31,7 @@ func (m *Handler) SendRequest(path string) ([]byte, error) {
 	return body, nil
 }
 
-func (m *Handler) GetVersion() (string, error) {
+func (m *Client) GetVersion() (string, error) {
 	resp, err := m.SendRequest("/version")
 	if err != nil {
 		return "", err
@@ -39,7 +39,21 @@ func (m *Handler) GetVersion() (string, error) {
 	return string(resp[:]), nil
 }
 
-func (m *Handler) GetSelfStack() (Stack, error) {
+func (m *Client) GetSelfContainer() (Container, error) {
+	resp, err := m.SendRequest("/self/container")
+	var container Container
+	if err != nil {
+		return container, err
+	}
+
+	if err = json.Unmarshal(resp, &container); err != nil {
+		return container, err
+	}
+
+	return container, nil
+}
+
+func (m *Client) GetSelfStack() (Stack, error) {
 	resp, err := m.SendRequest("/self/stack")
 	var stack Stack
 	if err != nil {
@@ -53,7 +67,7 @@ func (m *Handler) GetSelfStack() (Stack, error) {
 	return stack, nil
 }
 
-func (m *Handler) GetServices() ([]Service, error) {
+func (m *Client) GetServices() ([]Service, error) {
 	resp, err := m.SendRequest("/services")
 	var services []Service
 	if err != nil {
@@ -66,7 +80,7 @@ func (m *Handler) GetServices() ([]Service, error) {
 	return services, nil
 }
 
-func (m *Handler) GetContainers() ([]Container, error) {
+func (m *Client) GetContainers() ([]Container, error) {
 	resp, err := m.SendRequest("/containers")
 	var containers []Container
 	if err != nil {
@@ -79,7 +93,7 @@ func (m *Handler) GetContainers() ([]Container, error) {
 	return containers, nil
 }
 
-func (m *Handler) GetHosts() ([]Host, error) {
+func (m *Client) GetHosts() ([]Host, error) {
 	resp, err := m.SendRequest("/hosts")
 	var hosts []Host
 	if err != nil {
@@ -92,7 +106,7 @@ func (m *Handler) GetHosts() ([]Host, error) {
 	return hosts, nil
 }
 
-func (m *Handler) GetHost(UUID string) (Host, error) {
+func (m *Client) GetHost(UUID string) (Host, error) {
 	var host Host
 	hosts, err := m.GetHosts()
 	if err != nil {
