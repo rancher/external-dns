@@ -59,23 +59,29 @@ func updateRecords(toChange []providers.DnsRecord, op *Op) error {
 
 	go func() error {
 		for value := range values {
+			updateCattle := false
 			switch *op {
 			case Add:
 				logrus.Infof("Adding dns record: %v", value)
 				if err := provider.AddRecord(value); err != nil {
-					return fmt.Errorf("Failed to add DNS record %v: %v", value, err)
+					return fmt.Errorf("Failed to add DNS record to provider %v: %v", value, err)
 				}
+				updateCattle = true
 			case Remove:
 				logrus.Infof("Removing dns record: %v", value)
-
 				if err := provider.RemoveRecord(value); err != nil {
-					return fmt.Errorf("Failed to remove DNS record %v: %v", value, err)
+					return fmt.Errorf("Failed to remove DNS record from provider %v: %v", value, err)
 				}
 			case Update:
 				logrus.Infof("Updating dns record: %v", value)
 				if err := provider.UpdateRecord(value); err != nil {
-					return fmt.Errorf("Failed to update DNS record %v: %v", value, err)
+					return fmt.Errorf("Failed to update DNS record to provider %v: %v", value, err)
 				}
+				updateCattle = true
+			}
+			if updateCattle {
+				serviceDnsRecord := convertToServiceDnsRecord(value)
+				c.UpdateServiceDomainName(serviceDnsRecord)
 			}
 		}
 		return nil

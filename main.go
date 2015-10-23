@@ -125,11 +125,6 @@ func main() {
 				logrus.Errorf("Failed to update provider with new DNS records: %v", err)
 			}
 
-			//update cattle
-			err = c.UpdateExternalDns(metadataRecs, EnvironmentName)
-			if err != nil {
-				logrus.Errorf("Failed to update rancher with new DNS records: %v", err)
-			}
 			lastUpdated = time.Now()
 		}
 

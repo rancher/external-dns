@@ -7,6 +7,12 @@ import (
 	"strings"
 )
 
+type ServiceDnsRecord struct {
+	DomainName  string
+	ServiceName string
+	StackName   string
+}
+
 func getMetadataDnsRecords(m metadata.Handler) (map[string]providers.DnsRecord, error) {
 	dnsEntries := make(map[string]providers.DnsRecord)
 	err := getContainersDnsRecords(m, dnsEntries, "", "")
@@ -56,4 +62,11 @@ func getContainersDnsRecords(m metadata.Handler, dnsEntries map[string]providers
 	}
 
 	return nil
+}
+
+func convertToServiceDnsRecord(dnsRecord providers.DnsRecord) ServiceDnsRecord {
+	domainName := dnsRecord.DomainName
+	splitted := strings.Split(domainName, ".")
+	record := ServiceDnsRecord{domainName, splitted[0], splitted[1]}
+	return record
 }
