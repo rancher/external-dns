@@ -10,10 +10,9 @@ import (
 )
 
 const (
-	//FIXME - change metadata url to rancher-metadata
-	metadataUrl = "http://localhost:90"
+	metadataUrl = "http://rancher-metadata/latest"
 	poll        = 1000
-	// if metadata wasn't updated in 10 min, force update would be executed
+	// if metadata wasn't updated in 1 min, force update would be executed
 	forceUpdateInterval = 1
 )
 
@@ -34,7 +33,7 @@ var (
 
 	EnvironmentName string
 	provider        providers.Provider
-	m               metadata.Handler
+	m               *metadata.Client
 	c               *CattleClient
 )
 
@@ -57,7 +56,7 @@ func setEnv() {
 	}
 
 	// configure metadata client
-	m = metadata.NewHandler(metadataUrl)
+	m = metadata.NewClient(metadataUrl)
 	selfStack, err := m.GetSelfStack()
 	if err != nil {
 		logrus.Fatalf("Error reading stack info: %v", err)
@@ -69,10 +68,9 @@ func setEnv() {
 		logrus.Fatal("CATTLE_URL is not set")
 	}
 
-	cattleApiKey := os.Getenv("CATTLE_API_KEY")
-	logrus.Info(cattleApiKey)
+	cattleApiKey := os.Getenv("CATTLE_ACCESS_KEY")
 	if len(cattleApiKey) == 0 {
-		logrus.Fatal("CATTLE_API_KEY is not set")
+		logrus.Fatal("CATTLE_ACCESS_KEY is not set")
 	}
 
 	cattleSecretKey := os.Getenv("CATTLE_SECRET_KEY")
@@ -91,6 +89,8 @@ func main() {
 	logrus.Infof("Starting Rancher External DNS service")
 	setEnv()
 	logrus.Infof("Powered by %s", provider.GetName())
+
+	go startHealthcheck()
 
 	version := "init"
 	lastUpdated := time.Now()

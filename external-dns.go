@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/go-rancher-metadata/metadata"
 	"strings"
 	"sync"
 )
@@ -167,7 +166,7 @@ func getProviderDnsRecords() (map[string]providers.DnsRecord, error) {
 	return ourRecords, nil
 }
 
-func addToDnsEntries(m metadata.Handler, dnsEntry providers.DnsRecord, dnsEntries map[string]providers.DnsRecord) {
+func addToDnsEntries(dnsEntry providers.DnsRecord, dnsEntries map[string]providers.DnsRecord) {
 	var records []string
 	if _, ok := dnsEntries[dnsEntry.DomainName]; ok {
 		records = dnsEntry.Records

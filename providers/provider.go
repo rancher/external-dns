@@ -30,9 +30,9 @@ var (
 )
 
 func init() {
-	name := os.Getenv("EXTERNAL_DNS_ROOT_DOMAIN")
+	name := os.Getenv("ROOT_DOMAIN")
 	if len(name) == 0 {
-		logrus.Fatalf("EXTERNAL_DNS_ROOT_DOMAIN is not set")
+		logrus.Fatalf("ROOT_DOMAIN is not set")
 	}
 	RootDomainName = name
 }

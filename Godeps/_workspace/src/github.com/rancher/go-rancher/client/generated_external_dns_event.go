@@ -13,7 +13,7 @@ type ExternalDnsEvent struct {
 
 	Data map[string]interface{} `json:"data,omitempty" yaml:"data,omitempty"`
 
-	DnsRecords []interface{} `json:"dnsRecords,omitempty" yaml:"dns_records,omitempty"`
+	DomainName string `json:"domainName,omitempty" yaml:"domain_name,omitempty"`
 
 	EventType string `json:"eventType,omitempty" yaml:"event_type,omitempty"`
 
@@ -22,6 +22,10 @@ type ExternalDnsEvent struct {
 	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
 
 	ReportedAccountId string `json:"reportedAccountId,omitempty" yaml:"reported_account_id,omitempty"`
+
+	ServiceName string `json:"serviceName,omitempty" yaml:"service_name,omitempty"`
+
+	StackName string `json:"stackName,omitempty" yaml:"stack_name,omitempty"`
 
 	State string `json:"state,omitempty" yaml:"state,omitempty"`
 

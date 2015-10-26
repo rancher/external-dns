@@ -13,7 +13,7 @@ type ServiceDnsRecord struct {
 	StackName   string
 }
 
-func getMetadataDnsRecords(m metadata.Handler) (map[string]providers.DnsRecord, error) {
+func getMetadataDnsRecords(m *metadata.Client) (map[string]providers.DnsRecord, error) {
 	dnsEntries := make(map[string]providers.DnsRecord)
 	err := getContainersDnsRecords(m, dnsEntries, "", "")
 	if err != nil {
@@ -22,7 +22,7 @@ func getMetadataDnsRecords(m metadata.Handler) (map[string]providers.DnsRecord, 
 	return dnsEntries, nil
 }
 
-func getContainersDnsRecords(m metadata.Handler, dnsEntries map[string]providers.DnsRecord, serviceName string, stackName string) error {
+func getContainersDnsRecords(m *metadata.Client, dnsEntries map[string]providers.DnsRecord, serviceName string, stackName string) error {
 	containers, err := m.GetContainers()
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func getContainersDnsRecords(m metadata.Handler, dnsEntries map[string]providers
 		records := []string{ip}
 		dnsEntry := providers.DnsRecord{domainName, records, "A", 300}
 
-		addToDnsEntries(m, dnsEntry, dnsEntries)
+		addToDnsEntries(dnsEntry, dnsEntries)
 	}
 
 	return nil

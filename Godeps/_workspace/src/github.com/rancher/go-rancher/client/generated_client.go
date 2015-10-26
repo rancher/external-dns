@@ -3,7 +3,6 @@ package client
 type RancherClient struct {
 	RancherBaseClient
 
-	Subscribe                                SubscribeOperations
 	Publish                                  PublishOperations
 	LogConfig                                LogConfigOperations
 	RestartPolicy                            RestartPolicyOperations
@@ -98,6 +97,7 @@ type RancherClient struct {
 	StoragePool                              StoragePoolOperations
 	Task                                     TaskOperations
 	TaskInstance                             TaskInstanceOperations
+	UserPreference                           UserPreferenceOperations
 	Volume                                   VolumeOperations
 	TypeDocumentation                        TypeDocumentationOperations
 	FieldDocumentation                       FieldDocumentationOperations
@@ -140,7 +140,6 @@ func constructClient() *RancherClient {
 		},
 	}
 
-	client.Subscribe = newSubscribeClient(client)
 	client.Publish = newPublishClient(client)
 	client.LogConfig = newLogConfigClient(client)
 	client.RestartPolicy = newRestartPolicyClient(client)
@@ -235,6 +234,7 @@ func constructClient() *RancherClient {
 	client.StoragePool = newStoragePoolClient(client)
 	client.Task = newTaskClient(client)
 	client.TaskInstance = newTaskInstanceClient(client)
+	client.UserPreference = newUserPreferenceClient(client)
 	client.Volume = newVolumeClient(client)
 	client.TypeDocumentation = newTypeDocumentationClient(client)
 	client.FieldDocumentation = newFieldDocumentationClient(client)
