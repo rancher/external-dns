@@ -42,6 +42,10 @@ func getContainersDnsRecords(m *metadata.Client, dnsEntries map[string]providers
 			}
 		}
 
+		if len(container.Ports) == 0 {
+			continue
+		}
+
 		hostUUID := container.HostUUID
 		if len(hostUUID) == 0 {
 			logrus.Debugf("Container's %v host_uuid is empty", container.Name)
