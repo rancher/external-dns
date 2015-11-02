@@ -17,13 +17,13 @@ type Service struct {
 
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 
-	DomainName string `json:"domainName,omitempty" yaml:"domain_name,omitempty"`
-
 	EnvironmentId string `json:"environmentId,omitempty" yaml:"environment_id,omitempty"`
+
+	Fqdn string `json:"fqdn,omitempty" yaml:"fqdn,omitempty"`
 
 	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
 
-	LaunchConfig LaunchConfig `json:"launchConfig,omitempty" yaml:"launch_config,omitempty"`
+	LaunchConfig *LaunchConfig `json:"launchConfig,omitempty" yaml:"launch_config,omitempty"`
 
 	Metadata map[string]interface{} `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
@@ -40,6 +40,8 @@ type Service struct {
 	SelectorContainer string `json:"selectorContainer,omitempty" yaml:"selector_container,omitempty"`
 
 	SelectorLink string `json:"selectorLink,omitempty" yaml:"selector_link,omitempty"`
+
+	ServiceSchemas map[string]interface{} `json:"serviceSchemas,omitempty" yaml:"service_schemas,omitempty"`
 
 	State string `json:"state,omitempty" yaml:"state,omitempty"`
 
@@ -76,15 +78,21 @@ type ServiceOperations interface {
 
 	ActionAddservicelink(*Service, *AddRemoveServiceLinkInput) (*Service, error)
 
+	ActionCancelrollback(*Service) (*Service, error)
+
 	ActionCancelupgrade(*Service) (*Service, error)
 
 	ActionCreate(*Service) (*Service, error)
 
 	ActionDeactivate(*Service) (*Service, error)
 
+	ActionFinishupgrade(*Service) (*Service, error)
+
 	ActionRemove(*Service) (*Service, error)
 
 	ActionRemoveservicelink(*Service, *AddRemoveServiceLinkInput) (*Service, error)
+
+	ActionRollback(*Service) (*Service, error)
 
 	ActionSetservicelinks(*Service, *SetServiceLinksInput) (*Service, error)
 
@@ -145,6 +153,15 @@ func (c *ServiceClient) ActionAddservicelink(resource *Service, input *AddRemove
 	return resp, err
 }
 
+func (c *ServiceClient) ActionCancelrollback(resource *Service) (*Service, error) {
+
+	resp := &Service{}
+
+	err := c.rancherClient.doAction(SERVICE_TYPE, "cancelrollback", &resource.Resource, nil, resp)
+
+	return resp, err
+}
+
 func (c *ServiceClient) ActionCancelupgrade(resource *Service) (*Service, error) {
 
 	resp := &Service{}
@@ -172,6 +189,15 @@ func (c *ServiceClient) ActionDeactivate(resource *Service) (*Service, error) {
 	return resp, err
 }
 
+func (c *ServiceClient) ActionFinishupgrade(resource *Service) (*Service, error) {
+
+	resp := &Service{}
+
+	err := c.rancherClient.doAction(SERVICE_TYPE, "finishupgrade", &resource.Resource, nil, resp)
+
+	return resp, err
+}
+
 func (c *ServiceClient) ActionRemove(resource *Service) (*Service, error) {
 
 	resp := &Service{}
@@ -186,6 +212,15 @@ func (c *ServiceClient) ActionRemoveservicelink(resource *Service, input *AddRem
 	resp := &Service{}
 
 	err := c.rancherClient.doAction(SERVICE_TYPE, "removeservicelink", &resource.Resource, input, resp)
+
+	return resp, err
+}
+
+func (c *ServiceClient) ActionRollback(resource *Service) (*Service, error) {
+
+	resp := &Service{}
+
+	err := c.rancherClient.doAction(SERVICE_TYPE, "rollback", &resource.Resource, nil, resp)
 
 	return resp, err
 }

@@ -35,7 +35,7 @@ func (c *CattleClient) UpdateServiceDomainName(serviceDnsRecord ServiceDnsRecord
 		ExternalId:  serviceDnsRecord.DomainName,
 		ServiceName: serviceDnsRecord.ServiceName,
 		StackName:   serviceDnsRecord.StackName,
-		DomainName:  serviceDnsRecord.DomainName,
+		Fqdn:        serviceDnsRecord.DomainName,
 	}
 	_, err := c.rancherClient.ExternalDnsEvent.Create(event)
 	return err

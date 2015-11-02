@@ -76,6 +76,8 @@ type ClusterOperations interface {
 
 	ActionDeactivate(*Cluster) (*Host, error)
 
+	ActionDockersocket(*Cluster) (*HostAccess, error)
+
 	ActionPurge(*Cluster) (*Host, error)
 
 	ActionRemove(*Cluster) (*Host, error)
@@ -153,6 +155,15 @@ func (c *ClusterClient) ActionDeactivate(resource *Cluster) (*Host, error) {
 	resp := &Host{}
 
 	err := c.rancherClient.doAction(CLUSTER_TYPE, "deactivate", &resource.Resource, nil, resp)
+
+	return resp, err
+}
+
+func (c *ClusterClient) ActionDockersocket(resource *Cluster) (*HostAccess, error) {
+
+	resp := &HostAccess{}
+
+	err := c.rancherClient.doAction(CLUSTER_TYPE, "dockersocket", &resource.Resource, nil, resp)
 
 	return resp, err
 }

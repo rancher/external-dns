@@ -16,6 +16,9 @@ type RancherClient struct {
 	InstanceHealthCheck                      InstanceHealthCheckOperations
 	ServiceLink                              ServiceLinkOperations
 	ServiceUpgrade                           ServiceUpgradeOperations
+	ServiceUpgradeStrategy                   ServiceUpgradeStrategyOperations
+	InServiceUpgradeStrategy                 InServiceUpgradeStrategyOperations
+	ToServiceUpgradeStrategy                 ToServiceUpgradeStrategyOperations
 	AddLoadBalancerInput                     AddLoadBalancerInputOperations
 	AddRemoveClusterHostInput                AddRemoveClusterHostInputOperations
 	AddRemoveLoadBalancerHostInput           AddRemoveLoadBalancerHostInputOperations
@@ -53,6 +56,7 @@ type RancherClient struct {
 	PullTask                                 PullTaskOperations
 	ExternalVolumeEvent                      ExternalVolumeEventOperations
 	ExternalStoragePoolEvent                 ExternalStoragePoolEventOperations
+	EnvironmentUpgrade                       EnvironmentUpgradeOperations
 	ExternalDnsEvent                         ExternalDnsEventOperations
 	Account                                  AccountOperations
 	Agent                                    AgentOperations
@@ -153,6 +157,9 @@ func constructClient() *RancherClient {
 	client.InstanceHealthCheck = newInstanceHealthCheckClient(client)
 	client.ServiceLink = newServiceLinkClient(client)
 	client.ServiceUpgrade = newServiceUpgradeClient(client)
+	client.ServiceUpgradeStrategy = newServiceUpgradeStrategyClient(client)
+	client.InServiceUpgradeStrategy = newInServiceUpgradeStrategyClient(client)
+	client.ToServiceUpgradeStrategy = newToServiceUpgradeStrategyClient(client)
 	client.AddLoadBalancerInput = newAddLoadBalancerInputClient(client)
 	client.AddRemoveClusterHostInput = newAddRemoveClusterHostInputClient(client)
 	client.AddRemoveLoadBalancerHostInput = newAddRemoveLoadBalancerHostInputClient(client)
@@ -190,6 +197,7 @@ func constructClient() *RancherClient {
 	client.PullTask = newPullTaskClient(client)
 	client.ExternalVolumeEvent = newExternalVolumeEventClient(client)
 	client.ExternalStoragePoolEvent = newExternalStoragePoolEventClient(client)
+	client.EnvironmentUpgrade = newEnvironmentUpgradeClient(client)
 	client.ExternalDnsEvent = newExternalDnsEventClient(client)
 	client.Account = newAccountClient(client)
 	client.Agent = newAgentClient(client)
