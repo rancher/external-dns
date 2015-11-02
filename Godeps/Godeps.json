@@ -33,8 +33,8 @@
 		},
 		{
 			"ImportPath": "github.com/rancher/go-rancher/client",
-			"Comment": "v0.1.0-82-g0ebf6cb",
-			"Rev": "0ebf6cbe0023ca966aa522c29950799ae67d20af"
+			"Comment": "v0.1.0-82-g465def4",
+			"Rev": "465def4b0436df65693acbb3e3c6ed1bdec79e24"
 		},
 		{
 			"ImportPath": "github.com/vaughan0/go-ini",

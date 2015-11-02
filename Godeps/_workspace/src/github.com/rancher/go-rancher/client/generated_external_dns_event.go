@@ -13,11 +13,11 @@ type ExternalDnsEvent struct {
 
 	Data map[string]interface{} `json:"data,omitempty" yaml:"data,omitempty"`
 
-	DomainName string `json:"domainName,omitempty" yaml:"domain_name,omitempty"`
-
 	EventType string `json:"eventType,omitempty" yaml:"event_type,omitempty"`
 
 	ExternalId string `json:"externalId,omitempty" yaml:"external_id,omitempty"`
+
+	Fqdn string `json:"fqdn,omitempty" yaml:"fqdn,omitempty"`
 
 	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
 
