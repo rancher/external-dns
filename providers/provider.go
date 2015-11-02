@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
 	"os"
+	"strings"
 )
 
 var (
@@ -34,6 +35,11 @@ func init() {
 	if len(name) == 0 {
 		logrus.Fatalf("ROOT_DOMAIN is not set")
 	}
+
+	if !strings.HasSuffix(name, ".") {
+		name = name + "."
+	}
+
 	RootDomainName = name
 }
 
