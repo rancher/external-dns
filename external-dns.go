@@ -168,7 +168,7 @@ func getProviderDnsRecords() (map[string]providers.DnsRecord, error) {
 
 func addToDnsEntries(dnsEntry providers.DnsRecord, dnsEntries map[string]providers.DnsRecord) {
 	var records []string
-	if _, ok := dnsEntries[dnsEntry.DomainName]; ok {
+	if _, ok := dnsEntries[dnsEntry.DomainName]; !ok {
 		records = dnsEntry.Records
 	} else {
 		records = dnsEntries[dnsEntry.DomainName].Records
