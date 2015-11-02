@@ -69,13 +69,7 @@ func setHostedZone() error {
 		}
 	}
 	if hostedZone == nil {
-		logrus.Infof("Creating missing hosting zone for root domain %s ", RootDomainName)
-		req := route53.CreateHostedZoneRequest{Name: RootDomainName, Comment: "Updated by Rancher"}
-		resp, err := client.CreateHostedZone(&req)
-		if err != nil {
-			return fmt.Errorf("Failed to add missing hosted zone %v", err)
-		}
-		hostedZone = &resp.HostedZone
+		logrus.Fatalf("Hosted zone is missing for root domain %s ", RootDomainName)
 	}
 	return nil
 }
