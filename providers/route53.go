@@ -69,7 +69,7 @@ func setHostedZone() error {
 		}
 	}
 	if hostedZone == nil {
-		logrus.Fatalf("Hosted zone is missing for root domain %s ", RootDomainName)
+		logrus.Fatalf("Hosted zone %s is missing", RootDomainName)
 	}
 	return nil
 }
