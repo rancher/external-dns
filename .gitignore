@@ -1,3 +1,4 @@
 external-dns
 build
 dist
+bin
