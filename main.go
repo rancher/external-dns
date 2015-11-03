@@ -56,32 +56,41 @@ func setEnv() {
 	}
 
 	// configure metadata client
-	m = metadata.NewClient(metadataUrl)
-	selfStack, err := m.GetSelfStack()
-	if err != nil {
-		logrus.Fatalf("Error reading stack info: %v", err)
-	}
-	EnvironmentName = selfStack.EnvironmentName
+	for {
+		time.Sleep(1000 * time.Millisecond)
+		m = metadata.NewClient(metadataUrl)
+		selfStack, err := m.GetSelfStack()
+		if err != nil {
+			logrus.Error("Error reading stack info: %v", err)
+			continue
+		}
+		EnvironmentName = selfStack.EnvironmentName
 
-	cattleUrl := os.Getenv("CATTLE_URL")
-	if len(cattleUrl) == 0 {
-		logrus.Fatal("CATTLE_URL is not set")
-	}
+		cattleUrl := os.Getenv("CATTLE_URL")
+		if len(cattleUrl) == 0 {
+			logrus.Error("CATTLE_URL is not set")
+			continue
+		}
 
-	cattleApiKey := os.Getenv("CATTLE_ACCESS_KEY")
-	if len(cattleApiKey) == 0 {
-		logrus.Fatal("CATTLE_ACCESS_KEY is not set")
-	}
+		cattleApiKey := os.Getenv("CATTLE_ACCESS_KEY")
+		if len(cattleApiKey) == 0 {
+			logrus.Error("CATTLE_ACCESS_KEY is not set")
+			continue
+		}
 
-	cattleSecretKey := os.Getenv("CATTLE_SECRET_KEY")
-	if len(cattleSecretKey) == 0 {
-		logrus.Fatal("CATTLE_SECRET_KEY is not set")
-	}
+		cattleSecretKey := os.Getenv("CATTLE_SECRET_KEY")
+		if len(cattleSecretKey) == 0 {
+			logrus.Error("CATTLE_SECRET_KEY is not set")
+			continue
+		}
 
-	//configure cattle client
-	c, err = NewCattleClient(cattleUrl, cattleApiKey, cattleSecretKey)
-	if err != nil {
-		logrus.Fatalf("Failed to configure cattle client: %v", err)
+		//configure cattle client
+		c, err = NewCattleClient(cattleUrl, cattleApiKey, cattleSecretKey)
+		if err != nil {
+			logrus.Error("Failed to configure cattle client: %v", err)
+			continue
+		}
+		break
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"os"
 	"strings"
+	"time"
 )
 
 var (
@@ -31,9 +32,15 @@ var (
 )
 
 func init() {
-	name := os.Getenv("ROOT_DOMAIN")
-	if len(name) == 0 {
-		logrus.Fatalf("ROOT_DOMAIN is not set")
+	var name string
+	for {
+		time.Sleep(1000 * time.Millisecond)
+		name = os.Getenv("ROOT_DOMAIN")
+		if len(name) == 0 {
+			logrus.Error("ROOT_DOMAIN is not set")
+			continue
+		}
+		break
 	}
 
 	if !strings.HasSuffix(name, ".") {
