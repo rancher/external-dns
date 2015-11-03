@@ -5,7 +5,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/external-dns/providers"
 	"strings"
-	"sync"
+	"time"
 )
 
 func UpdateProviderDnsRecords(metadataRecs map[string]providers.DnsRecord) error {
@@ -40,49 +40,42 @@ func addMissingRecords(metadataRecs map[string]providers.DnsRecord, providerRecs
 }
 
 func updateRecords(toChange []providers.DnsRecord, op *Op) {
-	values := make(chan providers.DnsRecord)
-	var wg sync.WaitGroup
-	wg.Add(len(toChange))
-
+	count := 0
 	for _, value := range toChange {
-		go func(value providers.DnsRecord) {
-			defer wg.Done()
-			values <- value
-		}(value)
-	}
-
-	go func() {
-		for value := range values {
-			updateCattle := false
-			switch *op {
-			case Add:
-				logrus.Infof("Adding dns record: %v", value)
-				if err := provider.AddRecord(value); err != nil {
-					logrus.Errorf("Failed to add DNS record to provider %v: %v", value, err)
-				} else {
-					updateCattle = true
-				}
-			case Remove:
-				logrus.Infof("Removing dns record: %v", value)
-				if err := provider.RemoveRecord(value); err != nil {
-					logrus.Errorf("Failed to remove DNS record from provider %v: %v", value, err)
-				}
-			case Update:
-				logrus.Infof("Updating dns record: %v", value)
-				if err := provider.UpdateRecord(value); err != nil {
-					logrus.Errorf("Failed to update DNS record to provider %v: %v", value, err)
-				} else {
-					updateCattle = true
-				}
+		updateCattle := false
+		switch *op {
+		case Add:
+			logrus.Infof("Adding dns record: %v", value)
+			if err := provider.AddRecord(value); err != nil {
+				logrus.Errorf("Failed to add DNS record to provider %v: %v", value, err)
+			} else {
+				updateCattle = true
 			}
-			if updateCattle {
-				serviceDnsRecord := convertToServiceDnsRecord(value)
-				c.UpdateServiceDomainName(serviceDnsRecord)
+		case Remove:
+			logrus.Infof("Removing dns record: %v", value)
+			if err := provider.RemoveRecord(value); err != nil {
+				logrus.Errorf("Failed to remove DNS record from provider %v: %v", value, err)
+			}
+		case Update:
+			logrus.Infof("Updating dns record: %v", value)
+			if err := provider.UpdateRecord(value); err != nil {
+				logrus.Errorf("Failed to update DNS record to provider %v: %v", value, err)
+			} else {
+				updateCattle = true
 			}
 		}
-	}()
-	wg.Wait()
-	close(values)
+		if updateCattle {
+			serviceDnsRecord := convertToServiceDnsRecord(value)
+			c.UpdateServiceDomainName(serviceDnsRecord)
+		}
+
+		// to workaround rate limit on Amazon (5 requests per second)
+		count = count + 1
+		if count == 5 {
+			time.Sleep(1000 * time.Millisecond)
+			count = 0
+		}
+	}
 }
 
 func updateExistingRecords(metadataRecs map[string]providers.DnsRecord, providerRecs map[string]providers.DnsRecord) {
