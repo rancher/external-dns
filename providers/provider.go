@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
 var (
 	RootDomainName string
+	TTL            int
 )
 
 type Provider interface {
@@ -39,6 +41,13 @@ func init() {
 		if len(name) == 0 {
 			logrus.Error("ROOT_DOMAIN is not set")
 			continue
+		}
+		TTLEnv := os.Getenv("TTL")
+		i, err := strconv.Atoi(TTLEnv)
+		if err != nil {
+			TTL = 300
+		} else {
+			TTL = i
 		}
 		break
 	}

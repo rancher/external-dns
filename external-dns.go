@@ -161,6 +161,6 @@ func addToDnsEntries(dnsEntry providers.DnsRecord, dnsEntries map[string]provide
 		records = dnsEntries[dnsEntry.DomainName].Records
 		records = append(records, dnsEntry.Records...)
 	}
-	dnsEntry = providers.DnsRecord{dnsEntry.DomainName, records, "A", 300}
+	dnsEntry = providers.DnsRecord{dnsEntry.DomainName, records, "A", providers.TTL}
 	dnsEntries[dnsEntry.DomainName] = dnsEntry
 }
