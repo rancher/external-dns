@@ -60,7 +60,7 @@ func getContainersDnsRecords(m *metadata.Client, dnsEntries map[string]providers
 		domainNameEntries := []string{container.ServiceName, container.StackName, EnvironmentName, providers.RootDomainName}
 		domainName := strings.ToLower(strings.Join(domainNameEntries, "."))
 		records := []string{ip}
-		dnsEntry := providers.DnsRecord{domainName, records, "A", 300}
+		dnsEntry := providers.DnsRecord{domainName, records, "A", providers.TTL}
 
 		addToDnsEntries(dnsEntry, dnsEntries)
 	}
