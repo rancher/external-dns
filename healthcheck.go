@@ -19,7 +19,7 @@ func startHealthcheck() {
 
 func healtcheck(w http.ResponseWriter, req *http.Request) {
 	// 1) test metadata server
-	_, err := m.GetSelfStack()
+	_, err := m.MetadataClient.GetSelfStack()
 	if err != nil {
 		logrus.Error("Healtcheck failed: unable to reach metadata")
 		http.Error(w, "Failed to reach metadata server", http.StatusInternalServerError)

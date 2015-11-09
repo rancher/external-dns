@@ -1,12 +1,9 @@
 package main
 
 import (
+	"github.com/rancher/external-dns/dns"
 	"github.com/rancher/go-rancher/client"
 )
-
-type CattleInterface interface {
-	SyncStoragePool(string, []string) error
-}
 
 type CattleClient struct {
 	rancherClient *client.RancherClient
@@ -28,14 +25,14 @@ func NewCattleClient(cattleUrl string, cattleAccessKey string, cattleSecretKey s
 	}, nil
 }
 
-func (c *CattleClient) UpdateServiceDomainName(serviceDnsRecord ServiceDnsRecord) error {
+func (c *CattleClient) UpdateServiceDomainName(serviceDnsRecord dns.ServiceDnsRecord) error {
 
 	event := &client.ExternalDnsEvent{
 		EventType:   "dns.update",
-		ExternalId:  serviceDnsRecord.DomainName,
+		ExternalId:  serviceDnsRecord.Fqdn,
 		ServiceName: serviceDnsRecord.ServiceName,
 		StackName:   serviceDnsRecord.StackName,
-		Fqdn:        serviceDnsRecord.DomainName,
+		Fqdn:        serviceDnsRecord.Fqdn,
 	}
 	_, err := c.rancherClient.ExternalDnsEvent.Create(event)
 	return err
