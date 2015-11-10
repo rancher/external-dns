@@ -29,7 +29,7 @@
 		},
 		{
 			"ImportPath": "github.com/rancher/go-rancher-metadata/metadata",
-			"Rev": "0b0d5bebae78ce0edabe9f3a92439e066f1c037e"
+			"Rev": "3235034fa02c64bf78855c2673386260b5c43cc7"
 		},
 		{
 			"ImportPath": "github.com/rancher/go-rancher/client",

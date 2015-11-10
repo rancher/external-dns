@@ -3,15 +3,15 @@ package main
 import (
 	"flag"
 	"github.com/Sirupsen/logrus"
+	"github.com/rancher/external-dns/dns"
+	"github.com/rancher/external-dns/metadata"
 	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/go-rancher-metadata/metadata"
 	"os"
 	"time"
 )
 
 const (
-	metadataUrl = "http://rancher-metadata/latest"
-	poll        = 1000
+	poll = 1000
 	// if metadata wasn't updated in 1 min, force update would be executed
 	forceUpdateInterval = 1
 )
@@ -31,10 +31,9 @@ var (
 	debug        = flag.Bool("debug", false, "Debug")
 	logFile      = flag.String("log", "", "Log file")
 
-	EnvironmentName string
-	provider        providers.Provider
-	m               *metadata.Client
-	c               *CattleClient
+	provider providers.Provider
+	m        *metadata.MetadataClient
+	c        *CattleClient
 )
 
 func setEnv() {
@@ -56,41 +55,31 @@ func setEnv() {
 	}
 
 	// configure metadata client
-	for {
-		time.Sleep(1000 * time.Millisecond)
-		m = metadata.NewClient(metadataUrl)
-		selfStack, err := m.GetSelfStack()
-		if err != nil {
-			logrus.Error("Error reading stack info: %v", err)
-			continue
-		}
-		EnvironmentName = selfStack.EnvironmentName
+	mClient, err := metadata.NewMetadataClient()
+	if err != nil {
+		logrus.Fatalf("Failed to configure rancher-metadata client: %v", err)
+	}
+	m = mClient
 
-		cattleUrl := os.Getenv("CATTLE_URL")
-		if len(cattleUrl) == 0 {
-			logrus.Error("CATTLE_URL is not set")
-			continue
-		}
+	cattleUrl := os.Getenv("CATTLE_URL")
+	if len(cattleUrl) == 0 {
+		logrus.Fatalf("CATTLE_URL is not set")
+	}
 
-		cattleApiKey := os.Getenv("CATTLE_ACCESS_KEY")
-		if len(cattleApiKey) == 0 {
-			logrus.Error("CATTLE_ACCESS_KEY is not set")
-			continue
-		}
+	cattleApiKey := os.Getenv("CATTLE_ACCESS_KEY")
+	if len(cattleApiKey) == 0 {
+		logrus.Fatalf("CATTLE_ACCESS_KEY is not set")
+	}
 
-		cattleSecretKey := os.Getenv("CATTLE_SECRET_KEY")
-		if len(cattleSecretKey) == 0 {
-			logrus.Error("CATTLE_SECRET_KEY is not set")
-			continue
-		}
+	cattleSecretKey := os.Getenv("CATTLE_SECRET_KEY")
+	if len(cattleSecretKey) == 0 {
+		logrus.Fatalf("CATTLE_SECRET_KEY is not set")
+	}
 
-		//configure cattle client
-		c, err = NewCattleClient(cattleUrl, cattleApiKey, cattleSecretKey)
-		if err != nil {
-			logrus.Error("Failed to configure cattle client: %v", err)
-			continue
-		}
-		break
+	//configure cattle client
+	c, err = NewCattleClient(cattleUrl, cattleApiKey, cattleSecretKey)
+	if err != nil {
+		logrus.Fatalf("Failed to configure cattle client: %v", err)
 	}
 }
 
@@ -123,15 +112,21 @@ func main() {
 
 		if update {
 			// get records from metadata
-			metadataRecs, err := getMetadataDnsRecords(m)
+			metadataRecs, err := m.GetMetadataDnsRecords()
 			if err != nil {
 				logrus.Errorf("Error reading external dns entries: %v", err)
 			}
 			logrus.Debugf("DNS records from metadata: %v", metadataRecs)
 
 			//update provider
-			if err := UpdateProviderDnsRecords(metadataRecs); err != nil {
+			updated, err := UpdateProviderDnsRecords(metadataRecs)
+			if err != nil {
 				logrus.Errorf("Failed to update provider with new DNS records: %v", err)
+			}
+
+			for _, toUpdate := range updated {
+				serviceDnsRecord := dns.ConvertToServiceDnsRecord(toUpdate)
+				c.UpdateServiceDomainName(serviceDnsRecord)
 			}
 
 			lastUpdated = time.Now()

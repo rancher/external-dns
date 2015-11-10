@@ -5,6 +5,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/route53"
+	"github.com/rancher/external-dns/dns"
 	"math"
 	"os"
 )
@@ -30,10 +31,10 @@ func init() {
 	}
 
 	if err := setHostedZone(); err != nil {
-		logrus.Fatalf("Failed to set hosted zone for root domain %s: %v", RootDomainName, err)
+		logrus.Fatalf("Failed to set hosted zone for root domain %s: %v", dns.RootDomainName, err)
 	}
 
-	logrus.Infof("Configured %s with hosted zone \"%s\" in region \"%s\" ", route53Handler.GetName(), RootDomainName, region.Name)
+	logrus.Infof("Configured %s with hosted zone \"%s\" in region \"%s\" ", route53Handler.GetName(), dns.RootDomainName, region.Name)
 }
 
 func setRegion() error {
@@ -63,13 +64,13 @@ func setHostedZone() error {
 		logrus.Fatalf("Failed to list hosted zones: %v", err)
 	}
 	for _, zone := range zoneResp.HostedZones {
-		if zone.Name == RootDomainName {
+		if zone.Name == dns.RootDomainName {
 			hostedZone = &zone
 			break
 		}
 	}
 	if hostedZone == nil {
-		logrus.Fatalf("Hosted zone %s is missing", RootDomainName)
+		logrus.Fatalf("Hosted zone %s is missing", dns.RootDomainName)
 	}
 	return nil
 }
@@ -81,20 +82,20 @@ func (*Route53Handler) GetName() string {
 	return name
 }
 
-func (r *Route53Handler) AddRecord(record DnsRecord) error {
+func (r *Route53Handler) AddRecord(record dns.DnsRecord) error {
 	return r.changeRecord(record, "UPSERT")
 }
 
-func (r *Route53Handler) UpdateRecord(record DnsRecord) error {
+func (r *Route53Handler) UpdateRecord(record dns.DnsRecord) error {
 	return r.changeRecord(record, "UPSERT")
 }
 
-func (r *Route53Handler) RemoveRecord(record DnsRecord) error {
+func (r *Route53Handler) RemoveRecord(record dns.DnsRecord) error {
 	return r.changeRecord(record, "DELETE")
 }
 
-func (*Route53Handler) changeRecord(record DnsRecord, action string) error {
-	recordSet := route53.ResourceRecordSet{Name: record.DomainName, Type: record.Type, Records: record.Records, TTL: record.TTL}
+func (*Route53Handler) changeRecord(record dns.DnsRecord, action string) error {
+	recordSet := route53.ResourceRecordSet{Name: record.Fqdn, Type: record.Type, Records: record.Records, TTL: record.TTL}
 	update := route53.Change{action, recordSet}
 	changes := []route53.Change{update}
 	req := route53.ChangeResourceRecordSetsRequest{Comment: "Updated by Rancher", Changes: changes}
@@ -102,8 +103,8 @@ func (*Route53Handler) changeRecord(record DnsRecord, action string) error {
 	return err
 }
 
-func (*Route53Handler) GetRecords() ([]DnsRecord, error) {
-	var records []DnsRecord
+func (*Route53Handler) GetRecords() ([]dns.DnsRecord, error) {
+	var records []dns.DnsRecord
 	opts := route53.ListOpts{}
 
 	resp, err := client.ListResourceRecordSets(hostedZone.ID, &opts)
@@ -112,7 +113,7 @@ func (*Route53Handler) GetRecords() ([]DnsRecord, error) {
 	}
 
 	for _, rec := range resp.Records {
-		record := DnsRecord{DomainName: rec.Name, Records: rec.Records, Type: rec.Type, TTL: rec.TTL}
+		record := dns.DnsRecord{Fqdn: rec.Name, Records: rec.Records, Type: rec.Type, TTL: rec.TTL}
 		records = append(records, record)
 	}
 

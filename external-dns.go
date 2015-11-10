@@ -3,29 +3,30 @@ package main
 import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/providers"
+	"github.com/rancher/external-dns/dns"
 	"strings"
 	"time"
 )
 
-func UpdateProviderDnsRecords(metadataRecs map[string]providers.DnsRecord) error {
+func UpdateProviderDnsRecords(metadataRecs map[string]dns.DnsRecord) ([]dns.DnsRecord, error) {
+	var updated []dns.DnsRecord
 	providerRecs, err := getProviderDnsRecords()
 	if err != nil {
-		return fmt.Errorf("Provider error reading dns entries: %v", err)
+		return nil, fmt.Errorf("Provider error reading dns entries: %v", err)
 	}
 	logrus.Debugf("DNS records from provider: %v", providerRecs)
 
-	addMissingRecords(metadataRecs, providerRecs)
-
 	removeExtraRecords(metadataRecs, providerRecs)
 
-	updateExistingRecords(metadataRecs, providerRecs)
+	updated = append(updated, addMissingRecords(metadataRecs, providerRecs)...)
 
-	return nil
+	updated = append(updated, updateExistingRecords(metadataRecs, providerRecs)...)
+
+	return updated, nil
 }
 
-func addMissingRecords(metadataRecs map[string]providers.DnsRecord, providerRecs map[string]providers.DnsRecord) {
-	var toAdd []providers.DnsRecord
+func addMissingRecords(metadataRecs map[string]dns.DnsRecord, providerRecs map[string]dns.DnsRecord) []dns.DnsRecord {
+	var toAdd []dns.DnsRecord
 	for key := range metadataRecs {
 		if _, ok := providerRecs[key]; !ok {
 			toAdd = append(toAdd, metadataRecs[key])
@@ -36,20 +37,20 @@ func addMissingRecords(metadataRecs map[string]providers.DnsRecord, providerRecs
 	} else {
 		logrus.Infof("DNS records to add: %v", toAdd)
 	}
-	updateRecords(toAdd, &Add)
+	return updateRecords(toAdd, &Add)
 }
 
-func updateRecords(toChange []providers.DnsRecord, op *Op) {
+func updateRecords(toChange []dns.DnsRecord, op *Op) []dns.DnsRecord {
 	count := 0
+	var changed []dns.DnsRecord
 	for _, value := range toChange {
-		updateCattle := false
 		switch *op {
 		case Add:
 			logrus.Infof("Adding dns record: %v", value)
 			if err := provider.AddRecord(value); err != nil {
 				logrus.Errorf("Failed to add DNS record to provider %v: %v", value, err)
 			} else {
-				updateCattle = true
+				changed = append(changed, value)
 			}
 		case Remove:
 			logrus.Infof("Removing dns record: %v", value)
@@ -61,12 +62,8 @@ func updateRecords(toChange []providers.DnsRecord, op *Op) {
 			if err := provider.UpdateRecord(value); err != nil {
 				logrus.Errorf("Failed to update DNS record to provider %v: %v", value, err)
 			} else {
-				updateCattle = true
+				changed = append(changed, value)
 			}
-		}
-		if updateCattle {
-			serviceDnsRecord := convertToServiceDnsRecord(value)
-			c.UpdateServiceDomainName(serviceDnsRecord)
 		}
 
 		// to workaround rate limit on Amazon (5 requests per second)
@@ -76,10 +73,11 @@ func updateRecords(toChange []providers.DnsRecord, op *Op) {
 			count = 0
 		}
 	}
+	return changed
 }
 
-func updateExistingRecords(metadataRecs map[string]providers.DnsRecord, providerRecs map[string]providers.DnsRecord) {
-	var toUpdate []providers.DnsRecord
+func updateExistingRecords(metadataRecs map[string]dns.DnsRecord, providerRecs map[string]dns.DnsRecord) []dns.DnsRecord {
+	var toUpdate []dns.DnsRecord
 	for key := range metadataRecs {
 		if _, ok := providerRecs[key]; ok {
 			metadataR := make(map[string]struct{}, len(metadataRecs[key].Records))
@@ -118,11 +116,11 @@ func updateExistingRecords(metadataRecs map[string]providers.DnsRecord, provider
 		logrus.Infof("DNS records to update: %v", toUpdate)
 	}
 
-	updateRecords(toUpdate, &Update)
+	return updateRecords(toUpdate, &Update)
 }
 
-func removeExtraRecords(metadataRecs map[string]providers.DnsRecord, providerRecs map[string]providers.DnsRecord) {
-	var toRemove []providers.DnsRecord
+func removeExtraRecords(metadataRecs map[string]dns.DnsRecord, providerRecs map[string]dns.DnsRecord) []dns.DnsRecord {
+	var toRemove []dns.DnsRecord
 	for key := range providerRecs {
 		if _, ok := metadataRecs[key]; !ok {
 			toRemove = append(toRemove, providerRecs[key])
@@ -134,33 +132,21 @@ func removeExtraRecords(metadataRecs map[string]providers.DnsRecord, providerRec
 	} else {
 		logrus.Infof("DNS records to remove: %v", toRemove)
 	}
-	updateRecords(toRemove, &Remove)
+	return updateRecords(toRemove, &Remove)
 }
 
-func getProviderDnsRecords() (map[string]providers.DnsRecord, error) {
+func getProviderDnsRecords() (map[string]dns.DnsRecord, error) {
 	allRecords, err := provider.GetRecords()
 	if err != nil {
 		return nil, err
 	}
-	ourRecords := make(map[string]providers.DnsRecord, len(allRecords))
-	joins := []string{EnvironmentName, providers.RootDomainName}
+	ourRecords := make(map[string]dns.DnsRecord, len(allRecords))
+	joins := []string{m.EnvironmentName, dns.RootDomainName}
 	suffix := strings.ToLower(strings.Join(joins, "."))
 	for _, value := range allRecords {
-		if strings.HasSuffix(value.DomainName, suffix) {
-			ourRecords[value.DomainName] = value
+		if strings.HasSuffix(value.Fqdn, suffix) {
+			ourRecords[value.Fqdn] = value
 		}
 	}
 	return ourRecords, nil
-}
-
-func addToDnsEntries(dnsEntry providers.DnsRecord, dnsEntries map[string]providers.DnsRecord) {
-	var records []string
-	if _, ok := dnsEntries[dnsEntry.DomainName]; !ok {
-		records = dnsEntry.Records
-	} else {
-		records = dnsEntries[dnsEntry.DomainName].Records
-		records = append(records, dnsEntry.Records...)
-	}
-	dnsEntry = providers.DnsRecord{dnsEntry.DomainName, records, "A", providers.TTL}
-	dnsEntries[dnsEntry.DomainName] = dnsEntry
 }

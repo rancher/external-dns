@@ -15,6 +15,16 @@ func NewClient(url string) *Client {
 	return &Client{url}
 }
 
+func NewClientAndWait(url string) (*Client, error) {
+	client := &Client{url}
+
+	if err := testConnection(client); err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
 func (m *Client) SendRequest(path string) ([]byte, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", m.url+path, nil)
@@ -51,6 +61,20 @@ func (m *Client) GetSelfContainer() (Container, error) {
 	}
 
 	return container, nil
+}
+
+func (m *Client) GetSelfService() (Service, error) {
+	resp, err := m.SendRequest("/self/service")
+	var service Service
+	if err != nil {
+		return service, err
+	}
+
+	if err = json.Unmarshal(resp, &service); err != nil {
+		return service, err
+	}
+
+	return service, nil
 }
 
 func (m *Client) GetSelfStack() (Stack, error) {

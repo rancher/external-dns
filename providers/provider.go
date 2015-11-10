@@ -3,30 +3,16 @@ package providers
 import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
-	"os"
-	"strconv"
-	"strings"
-	"time"
-)
-
-var (
-	RootDomainName string
-	TTL            int
+	"github.com/rancher/external-dns/dns"
+	"github.com/rancher/external-dns/metadata"
 )
 
 type Provider interface {
-	AddRecord(record DnsRecord) error
-	RemoveRecord(record DnsRecord) error
-	UpdateRecord(record DnsRecord) error
-	GetRecords() ([]DnsRecord, error)
+	AddRecord(record dns.DnsRecord) error
+	RemoveRecord(record dns.DnsRecord) error
+	UpdateRecord(record dns.DnsRecord) error
+	GetRecords() ([]dns.DnsRecord, error)
 	GetName() string
-}
-
-type DnsRecord struct {
-	DomainName string
-	Records    []string
-	Type       string
-	TTL        int
 }
 
 var (
@@ -34,29 +20,12 @@ var (
 )
 
 func init() {
-	var name string
-	for {
-		time.Sleep(1000 * time.Millisecond)
-		name = os.Getenv("ROOT_DOMAIN")
-		if len(name) == 0 {
-			logrus.Error("ROOT_DOMAIN is not set")
-			continue
-		}
-		TTLEnv := os.Getenv("TTL")
-		i, err := strconv.Atoi(TTLEnv)
-		if err != nil {
-			TTL = 300
-		} else {
-			TTL = i
-		}
-		break
+	// try to resolve rancher-metadata before going further
+	// the resolution indicates that the network has been set
+	_, err := metadata.NewMetadataClient()
+	if err != nil {
+		logrus.Fatalf("Failed to configure rancher-metadata client: %v", err)
 	}
-
-	if !strings.HasSuffix(name, ".") {
-		name = name + "."
-	}
-
-	RootDomainName = name
 }
 
 func GetProvider(name string) Provider {
