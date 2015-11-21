@@ -21,6 +21,21 @@ var (
 )
 
 func init() {
+	if len(os.Getenv("AWS_REGION")) == 0 {
+		logrus.Info("AWS_REGION is not set, skipping init of Route53 provider")
+		return
+	}
+
+	if len(os.Getenv("AWS_ACCESS_KEY")) == 0 {
+		logrus.Info("AWS_ACCESS_KEY is not set, skipping init of Route53 provider")
+		return
+	}
+
+	if len(os.Getenv("AWS_SECRET_KEY")) == 0 {
+		logrus.Info("AWS_SECRET_KEY is not set, skipping init of Route53 provider")
+		return
+	}
+
 	route53Handler := &Route53Handler{}
 	if err := RegisterProvider("route53", route53Handler); err != nil {
 		logrus.Fatal("Could not register route53 provider")
