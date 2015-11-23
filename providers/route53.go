@@ -55,10 +55,6 @@ func init() {
 func setRegion() error {
 
 	regionName := os.Getenv("AWS_REGION")
-	if len(regionName) == 0 {
-		return fmt.Errorf("AWS_REGION is not set")
-	}
-
 	r, ok := aws.Regions[regionName]
 	if !ok {
 		return fmt.Errorf("Could not find region by name %s", regionName)
