@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/rancher/external-dns",
-	"GoVersion": "go1.4",
+	"GoVersion": "go1.5.1",
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
@@ -39,6 +39,10 @@
 		{
 			"ImportPath": "github.com/vaughan0/go-ini",
 			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
+		},
+		{
+			"ImportPath": "github.com/weppos/go-dnsimple/dnsimple",
+			"Rev": "c82ccf106204c401644a24e8b45d16cf81e9cccb"
 		}
 	]
 }
