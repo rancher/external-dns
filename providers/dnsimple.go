@@ -151,6 +151,7 @@ func (d *DNSimpleHandler) GetRecords() ([]dns.DnsRecord, error) {
 			recordSlice, sliceExists := recordSet[rec.Type]
 			if sliceExists {
 				recordSlice = append(recordSlice, rec.Content)
+				recordSet[rec.Type] = recordSlice
 			} else {
 				recordSet[rec.Type] = []string{rec.Content}
 			}
