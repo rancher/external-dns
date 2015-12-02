@@ -8,6 +8,10 @@
 			"Rev": "418b41d23a1bf978c06faea5313ba194650ac088"
 		},
 		{
+			"ImportPath": "github.com/crackcomm/cloudflare",
+			"Rev": "fddeb905945baf3fd946a5fdfa80eb66e7ad363f"
+		},
+		{
 			"ImportPath": "github.com/gorilla/context",
 			"Rev": "1c83b3eabd45b6d76072b66b746c20815fb2872d"
 		},
@@ -43,6 +47,10 @@
 		{
 			"ImportPath": "github.com/weppos/go-dnsimple/dnsimple",
 			"Rev": "c82ccf106204c401644a24e8b45d16cf81e9cccb"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "633434aadc5ed438f45bc0efbb52c3a1ad7e64b9"
 		}
 	]
 }
