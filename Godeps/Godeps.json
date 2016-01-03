@@ -8,6 +8,11 @@
 			"Rev": "418b41d23a1bf978c06faea5313ba194650ac088"
 		},
 		{
+			"ImportPath": "github.com/cognetoapps/go-pointdns",
+			"Comment": "0.1.0",
+			"Rev": "31674057a16078061e8ea644c6c7b4486e65311d"
+		},
+		{
 			"ImportPath": "github.com/crackcomm/cloudflare",
 			"Rev": "fddeb905945baf3fd946a5fdfa80eb66e7ad363f"
 		},
