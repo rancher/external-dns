@@ -1,9 +1,11 @@
 package metadata
 
 import (
+	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/external-dns/dns"
 	"github.com/rancher/go-rancher-metadata/metadata"
+	"time"
 )
 
 const (
@@ -15,19 +17,36 @@ type MetadataClient struct {
 	EnvironmentName string
 }
 
+func getEnvironmentName(m *metadata.Client) (string, error) {
+	timeout := 30 * time.Second
+	var err error
+	var stack metadata.Stack
+	for i := 1 * time.Second; i < timeout; i *= time.Duration(2) {
+		stack, err = m.GetSelfStack()
+		if err != nil {
+			logrus.Errorf("Error reading stack info: %v...will retry", err)
+			time.Sleep(i)
+		} else {
+			return stack.EnvironmentName, nil
+		}
+	}
+	return "", fmt.Errorf("Error reading stack info: %v", err)
+}
+
 func NewMetadataClient() (*MetadataClient, error) {
 	m, err := metadata.NewClientAndWait(metadataUrl)
 	if err != nil {
 		logrus.Fatalf("Failed to configure rancher-metadata: %v", err)
 	}
-	selfStack, err := m.GetSelfStack()
+
+	envName, err := getEnvironmentName(m)
 	if err != nil {
 		logrus.Fatalf("Error reading stack info: %v", err)
 	}
 
 	return &MetadataClient{
 		MetadataClient:  m,
-		EnvironmentName: selfStack.EnvironmentName,
+		EnvironmentName: envName,
 	}, nil
 }
 
