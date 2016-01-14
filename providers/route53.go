@@ -2,6 +2,7 @@ package providers
 
 import (
 	"fmt"
+	"github.com/juju/ratelimit"
 	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/route53"
@@ -18,6 +19,7 @@ var (
 	client     *route53.Route53
 	hostedZone *route53.HostedZone
 	region     aws.Region
+	limiter    *ratelimit.Bucket
 )
 
 func init() {
@@ -48,6 +50,9 @@ func init() {
 	if err := setHostedZone(); err != nil {
 		logrus.Fatalf("Failed to set hosted zone for root domain %s: %v", dns.RootDomainName, err)
 	}
+
+	// Throttle Route53 API calls to 5 req/s
+	limiter = ratelimit.NewBucketWithRate(5.0, 1)
 
 	logrus.Infof("Configured %s with hosted zone \"%s\" in region \"%s\" ", route53Handler.GetName(), dns.RootDomainName, region.Name)
 }
@@ -110,6 +115,7 @@ func (*Route53Handler) changeRecord(record dns.DnsRecord, action string) error {
 	update := route53.Change{action, recordSet}
 	changes := []route53.Change{update}
 	req := route53.ChangeResourceRecordSetsRequest{Comment: "Updated by Rancher", Changes: changes}
+	limiter.Wait(1)
 	_, err := client.ChangeResourceRecordSets(hostedZone.ID, &req)
 	return err
 }
@@ -117,7 +123,7 @@ func (*Route53Handler) changeRecord(record dns.DnsRecord, action string) error {
 func (*Route53Handler) GetRecords() ([]dns.DnsRecord, error) {
 	var records []dns.DnsRecord
 	opts := route53.ListOpts{}
-
+	limiter.Wait(1)
 	resp, err := client.ListResourceRecordSets(hostedZone.ID, &opts)
 	if err != nil {
 		return records, fmt.Errorf("Route53 API call has failed: %v", err)

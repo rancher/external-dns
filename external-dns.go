@@ -5,7 +5,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/external-dns/dns"
 	"strings"
-	"time"
 )
 
 func UpdateProviderDnsRecords(metadataRecs map[string]dns.DnsRecord) ([]dns.DnsRecord, error) {
@@ -41,7 +40,6 @@ func addMissingRecords(metadataRecs map[string]dns.DnsRecord, providerRecs map[s
 }
 
 func updateRecords(toChange []dns.DnsRecord, op *Op) []dns.DnsRecord {
-	count := 0
 	var changed []dns.DnsRecord
 	for _, value := range toChange {
 		switch *op {
@@ -64,13 +62,6 @@ func updateRecords(toChange []dns.DnsRecord, op *Op) []dns.DnsRecord {
 			} else {
 				changed = append(changed, value)
 			}
-		}
-
-		// to workaround rate limit on Amazon (5 requests per second)
-		count = count + 1
-		if count == 5 {
-			time.Sleep(1000 * time.Millisecond)
-			count = 0
 		}
 	}
 	return changed

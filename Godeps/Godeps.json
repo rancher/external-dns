@@ -29,6 +29,10 @@
 			"Rev": "5ed2f4547d7b9c036541b27a67ecf54e41756997"
 		},
 		{
+			"ImportPath": "github.com/juju/ratelimit",
+			"Rev": "77ed1c8a01217656d2080ad51981f6e99adaa177"
+		},
+		{
 			"ImportPath": "github.com/mitchellh/goamz/aws",
 			"Rev": "caaaea8b30ee15616494ee68abd5d8ebbbef05cf"
 		},
