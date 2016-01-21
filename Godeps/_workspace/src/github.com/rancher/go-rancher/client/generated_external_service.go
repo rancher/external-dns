@@ -17,6 +17,8 @@ type ExternalService struct {
 
 	EnvironmentId string `json:"environmentId,omitempty" yaml:"environment_id,omitempty"`
 
+	ExternalId string `json:"externalId,omitempty" yaml:"external_id,omitempty"`
+
 	ExternalIpAddresses []string `json:"externalIpAddresses,omitempty" yaml:"external_ip_addresses,omitempty"`
 
 	Fqdn string `json:"fqdn,omitempty" yaml:"fqdn,omitempty"`
@@ -36,8 +38,6 @@ type ExternalService struct {
 	RemoveTime string `json:"removeTime,omitempty" yaml:"remove_time,omitempty"`
 
 	Removed string `json:"removed,omitempty" yaml:"removed,omitempty"`
-
-	SelectorLink string `json:"selectorLink,omitempty" yaml:"selector_link,omitempty"`
 
 	State string `json:"state,omitempty" yaml:"state,omitempty"`
 
@@ -122,6 +122,11 @@ func (c *ExternalServiceClient) List(opts *ListOpts) (*ExternalServiceCollection
 func (c *ExternalServiceClient) ById(id string) (*ExternalService, error) {
 	resp := &ExternalService{}
 	err := c.rancherClient.doById(EXTERNAL_SERVICE_TYPE, id, resp)
+	if apiError, ok := err.(*ApiError); ok {
+		if apiError.StatusCode == 404 {
+			return nil, nil
+		}
+	}
 	return resp, err
 }
 

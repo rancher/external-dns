@@ -86,6 +86,11 @@ func (c *ExternalDnsEventClient) List(opts *ListOpts) (*ExternalDnsEventCollecti
 func (c *ExternalDnsEventClient) ById(id string) (*ExternalDnsEvent, error) {
 	resp := &ExternalDnsEvent{}
 	err := c.rancherClient.doById(EXTERNAL_DNS_EVENT_TYPE, id, resp)
+	if apiError, ok := err.(*ApiError); ok {
+		if apiError.StatusCode == 404 {
+			return nil, nil
+		}
+	}
 	return resp, err
 }
 

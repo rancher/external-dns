@@ -13,6 +13,8 @@ type Ldapconfig struct {
 
 	Enabled bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
 
+	GroupMemberMappingAttribute string `json:"groupMemberMappingAttribute,omitempty" yaml:"group_member_mapping_attribute,omitempty"`
+
 	GroupNameField string `json:"groupNameField,omitempty" yaml:"group_name_field,omitempty"`
 
 	GroupObjectClass string `json:"groupObjectClass,omitempty" yaml:"group_object_class,omitempty"`
@@ -38,6 +40,8 @@ type Ldapconfig struct {
 	UserEnabledAttribute string `json:"userEnabledAttribute,omitempty" yaml:"user_enabled_attribute,omitempty"`
 
 	UserLoginField string `json:"userLoginField,omitempty" yaml:"user_login_field,omitempty"`
+
+	UserMemberAttribute string `json:"userMemberAttribute,omitempty" yaml:"user_member_attribute,omitempty"`
 
 	UserNameField string `json:"userNameField,omitempty" yaml:"user_name_field,omitempty"`
 
@@ -90,6 +94,11 @@ func (c *LdapconfigClient) List(opts *ListOpts) (*LdapconfigCollection, error) {
 func (c *LdapconfigClient) ById(id string) (*Ldapconfig, error) {
 	resp := &Ldapconfig{}
 	err := c.rancherClient.doById(LDAPCONFIG_TYPE, id, resp)
+	if apiError, ok := err.(*ApiError); ok {
+		if apiError.StatusCode == 404 {
+			return nil, nil
+		}
+	}
 	return resp, err
 }
 
