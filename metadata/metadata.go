@@ -108,6 +108,15 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]dns.DnsRe
 	return nil
 }
 
+func (m *MetadataClient) GetServiceToken() (string, error) {
+	service, err := m.MetadataClient.GetSelfService()
+	if err != nil {
+		return "", err
+	}
+
+	return service.Token, nil
+}
+
 func addToDnsEntries(dnsEntry dns.DnsRecord, dnsEntries map[string]dns.DnsRecord) {
 	var records []string
 	if _, ok := dnsEntries[dnsEntry.Fqdn]; !ok {

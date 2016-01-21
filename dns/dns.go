@@ -1,15 +1,18 @@
 package dns
 
 import (
-	"github.com/Sirupsen/logrus"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 )
 
 var (
-	RootDomainName string
-	TTL            int
+	RootDomainName    string
+	TTL               int
+	FQDNGeneratorName string
 )
 
 type DnsRecord struct {
@@ -26,11 +29,6 @@ type ServiceDnsRecord struct {
 }
 
 func init() {
-	var name string
-	name = os.Getenv("ROOT_DOMAIN")
-	if len(name) == 0 {
-		logrus.Fatalf("ROOT_DOMAIN is not set")
-	}
 	TTLEnv := os.Getenv("TTL")
 	i, err := strconv.Atoi(TTLEnv)
 	if err != nil {
@@ -38,12 +36,10 @@ func init() {
 	} else {
 		TTL = i
 	}
+}
 
-	if !strings.HasSuffix(name, ".") {
-		name = name + "."
-	}
-
-	RootDomainName = name
+func SetRootDomain(rootDomain string) {
+	RootDomainName = rootDomain
 }
 
 func ConvertToServiceDnsRecord(dnsRecord DnsRecord) ServiceDnsRecord {
@@ -53,6 +49,53 @@ func ConvertToServiceDnsRecord(dnsRecord DnsRecord) ServiceDnsRecord {
 }
 
 func ConvertToFqdn(serviceName string, stackName string, environmentName string) string {
-	domainNameEntries := []string{serviceName, stackName, environmentName, RootDomainName}
-	return strings.ToLower(strings.Join(domainNameEntries, "."))
+
+	fqdnGenerator := GetFQDNGenerator(FQDNGeneratorName)
+	return fqdnGenerator.GenerateFQDN(serviceName, stackName, environmentName, RootDomainName)
+
+}
+
+func SaveServiceTokenToDisk(authToken string) error {
+
+	//read yaml file to load the auth Token if exists
+	if _, err := os.Stat("./public_dns_file.yml"); err == nil {
+
+		tokenBytes, err := ioutil.ReadFile("./public_dns_file.yml")
+		if err != nil {
+			return err
+		}
+		tokenMap := make(map[string]string)
+		yaml.Unmarshal(tokenBytes, &tokenMap)
+		token := tokenMap["AUTH_TOKEN"]
+
+		if strings.EqualFold(authToken, token) {
+			return nil
+		}
+	}
+
+	tokenMap := make(map[string]string)
+
+	tokenMap["AUTH_TOKEN"] = authToken
+	tokenMap["ROOT_DOMAIN"] = ""
+
+	tokenBytes, err := yaml.Marshal(&tokenMap)
+
+	if err != nil {
+		return err
+	}
+
+	output, err := os.Create(path.Join("./", "public_dns_file.yml"))
+
+	if err != nil {
+		return err
+	}
+
+	defer output.Close()
+
+	_, err = output.Write(tokenBytes)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

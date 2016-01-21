@@ -93,6 +93,14 @@ func (*GandiHandler) GetName() string {
 	return "Gandi"
 }
 
+func (*GandiHandler) TestConnection() error {
+	return nil
+}
+
+func (*GandiHandler) GetRootDomain() string {
+	return getDefaultRootDomain()
+}
+
 func (g *GandiHandler) AddRecord(record dns.DnsRecord) error {
 	newVersion, err := g.newZoneVersion()
 	if err != nil {
@@ -166,7 +174,7 @@ func (g *GandiHandler) findRecords(record dns.DnsRecord, version int64) ([]gandi
 	return records, nil
 }
 
-func (g *GandiHandler) GetRecords() ([]dns.DnsRecord, error) {
+func (g *GandiHandler) GetRecords(listOpts ...string) ([]dns.DnsRecord, error) {
 	var records []dns.DnsRecord
 
 	recordResp, err := g.record.List(g.zone.Id, g.zone.Version)

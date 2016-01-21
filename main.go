@@ -7,6 +7,7 @@ import (
 	"github.com/rancher/external-dns/metadata"
 	"github.com/rancher/external-dns/providers"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -27,9 +28,10 @@ var (
 )
 
 var (
-	providerName = flag.String("provider", "", "External provider name")
-	debug        = flag.Bool("debug", false, "Debug")
-	logFile      = flag.String("log", "", "Log file")
+	providerName      = flag.String("provider", "", "External provider name")
+	debug             = flag.Bool("debug", false, "Debug")
+	logFile           = flag.String("log", "", "Log file")
+	fqdnGeneratorName = flag.String("fqdnGeneratorName", "DefaultFQDNGenerator", "Choose out of DefaultFQDNGenerator | SkipEnvGenerator")
 
 	provider providers.Provider
 	m        *metadata.MetadataClient
@@ -38,7 +40,32 @@ var (
 
 func setEnv() {
 	flag.Parse()
+
+	// configure metadata client
+	mClient, err := metadata.NewMetadataClient()
+	if err != nil {
+		logrus.Fatalf("Failed to configure rancher-metadata client: %v", err)
+	}
+	m = mClient
+
+	if strings.EqualFold(*providerName, "RancherPublicDNS") {
+		svcToken, err := m.GetServiceToken()
+		if err != nil {
+			logrus.Fatalf("Failed to read service token from metadata: %v", err)
+		}
+		err = dns.SaveServiceTokenToDisk(svcToken)
+		if err != nil {
+			logrus.Fatalf("Failed to save service token: %v", err)
+		}
+	}
+
 	provider = providers.GetProvider(*providerName)
+
+	err = provider.TestConnection()
+	if err != nil {
+		logrus.Fatalf("Failed to test the provider connection, provider is not ready", err)
+	}
+
 	if *debug {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
@@ -54,12 +81,13 @@ func setEnv() {
 		}
 	}
 
-	// configure metadata client
-	mClient, err := metadata.NewMetadataClient()
-	if err != nil {
-		logrus.Fatalf("Failed to configure rancher-metadata client: %v", err)
+	//configure dns rootdomain
+	providerSpecificRoot := provider.GetRootDomain()
+	if providerSpecificRoot != "" {
+		dns.SetRootDomain(providerSpecificRoot)
 	}
-	m = mClient
+
+	dns.FQDNGeneratorName = *fqdnGeneratorName
 
 	cattleUrl := os.Getenv("CATTLE_URL")
 	if len(cattleUrl) == 0 {

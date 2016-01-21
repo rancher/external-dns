@@ -2,13 +2,16 @@ package providers
 
 import (
 	"fmt"
-	"github.com/Sirupsen/logrus"
+	logrus "github.com/Sirupsen/logrus"
 	"github.com/juju/ratelimit"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/route53"
 	"github.com/rancher/external-dns/dns"
 	"math"
 	"os"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const (
@@ -38,10 +41,14 @@ func init() {
 		return
 	}
 
+	InitializeRoute53()
+
+}
+
+func InitializeRoute53() {
 	route53Handler := &Route53Handler{}
-	if err := RegisterProvider("route53", route53Handler); err != nil {
-		logrus.Fatal("Could not register route53 provider")
-	}
+
+	dns.SetRootDomain(getDefaultRootDomain())
 
 	if err := setRegion(); err != nil {
 		logrus.Fatalf("Failed to set region: %v", err)
@@ -55,7 +62,34 @@ func init() {
 	// AWS limit is 5rec/s per account, so leaving the room for other clients
 	limiter = ratelimit.NewBucketWithRate(3.0, 1)
 
+	//check network health
+	err := route53Handler.TestConnection()
+
+	if err != nil {
+		logrus.Fatalf("Failed to connect to route53 service: %v", err)
+	}
+
+	UnRegisterProvider("route53")
+
+	if err := RegisterProvider("route53", route53Handler); err != nil && err.Error() != "provider already registered" {
+		logrus.Fatalf("Could not register route53 provider %v", err)
+	}
+
 	logrus.Infof("Configured %s with hosted zone \"%s\" in region \"%s\" ", route53Handler.GetName(), dns.RootDomainName, region.Name)
+}
+
+func (*Route53Handler) TestConnection() error {
+	var err error
+	maxTime := 20 * time.Second
+
+	for i := 1 * time.Second; i < maxTime; i *= time.Duration(2) {
+		if _, err = client.ListHostedZones("", 3); err != nil {
+			time.Sleep(i)
+		} else {
+			return nil
+		}
+	}
+	return err
 }
 
 func setRegion() error {
@@ -99,6 +133,10 @@ func (*Route53Handler) GetName() string {
 	return name
 }
 
+func (*Route53Handler) GetRootDomain() string {
+	return getDefaultRootDomain()
+}
+
 func (r *Route53Handler) AddRecord(record dns.DnsRecord) error {
 	return r.changeRecord(record, "UPSERT")
 }
@@ -121,19 +159,74 @@ func (*Route53Handler) changeRecord(record dns.DnsRecord, action string) error {
 	return err
 }
 
-func (*Route53Handler) GetRecords() ([]dns.DnsRecord, error) {
+func (*Route53Handler) GetRecords(listOpts ...string) ([]dns.DnsRecord, error) {
 	var records []dns.DnsRecord
+
 	opts := route53.ListOpts{}
-	limiter.Wait(1)
-	resp, err := client.ListResourceRecordSets(hostedZone.ID, &opts)
-	if err != nil {
-		return records, fmt.Errorf("Route53 API call has failed: %v", err)
+
+	if len(listOpts) > 0 {
+		for i, option := range listOpts {
+			switch i {
+			case 0:
+				if listOpts[0] != "" {
+					opts.Name = option
+				}
+
+			case 1:
+				if listOpts[1] != "" {
+					opts.Type = option
+				}
+
+			case 2:
+				maxItems, err := strconv.Atoi(option)
+				if err != nil {
+					logrus.Debugf("Error parsing the maxItems filter %v, not applying this filter", err)
+				} else {
+					opts.MaxItems = maxItems
+				}
+
+			}
+		}
 	}
 
-	for _, rec := range resp.Records {
-		record := dns.DnsRecord{Fqdn: rec.Name, Records: rec.Records, Type: rec.Type, TTL: rec.TTL}
-		records = append(records, record)
+	logrus.Debugf("Route53 GetRecords filtered by name: %s, by type: %s, by maxItems: %d", opts.Name, opts.Type, opts.MaxItems)
+
+	tempOpts := route53.ListOpts{}
+	tempOpts.Name = opts.Name
+	tempOpts.Type = opts.Type
+	tempOpts.MaxItems = opts.MaxItems
+
+	for {
+		limiter.Wait(1)
+		resp, err := client.ListResourceRecordSets(hostedZone.ID, &tempOpts)
+
+		if err != nil {
+			return records, fmt.Errorf("Route53 API call has failed: %v", err)
+		}
+		i := 0
+		for _, rec := range resp.Records {
+			if opts.Name != "" && strings.HasSuffix(rec.Name, opts.Name) {
+				record := dns.DnsRecord{Fqdn: rec.Name, Records: rec.Records, Type: rec.Type, TTL: rec.TTL}
+				records = append(records, record)
+				i++
+			}
+		}
+
+		logrus.Debugf("Recordset size %v", i)
+
+		if resp.IsTruncated {
+			if opts.Name != "" && !strings.HasSuffix(resp.NextRecordName, opts.Name) {
+				break
+			} else if opts.Type != "" && !strings.EqualFold(resp.NextRecordType, opts.Type) {
+				break
+			}
+			tempOpts.Name = resp.NextRecordName
+		} else {
+			break
+		}
 	}
+
+	logrus.Debugf("Records found are these %v", records)
 
 	return records, nil
 }

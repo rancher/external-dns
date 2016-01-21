@@ -27,6 +27,8 @@ func init() {
 		logrus.Fatal("Could not register dnsimple provider")
 	}
 
+	dns.SetRootDomain(getDefaultRootDomain())
+
 	dnsimpleHandler.root = strings.TrimSuffix(dns.RootDomainName, ".")
 	dnsimpleHandler.client = dnsimple.NewClient(apiToken, email)
 
@@ -55,8 +57,16 @@ type DNSimpleHandler struct {
 	root   string
 }
 
+func (*DNSimpleHandler) TestConnection() error {
+	return nil
+}
+
 func (*DNSimpleHandler) GetName() string {
 	return "DNSimple"
+}
+
+func (*DNSimpleHandler) GetRootDomain() string {
+	return getDefaultRootDomain()
 }
 
 func (d *DNSimpleHandler) parseName(record dns.DnsRecord) string {
@@ -125,7 +135,7 @@ func (d *DNSimpleHandler) RemoveRecord(record dns.DnsRecord) error {
 	return nil
 }
 
-func (d *DNSimpleHandler) GetRecords() ([]dns.DnsRecord, error) {
+func (d *DNSimpleHandler) GetRecords(listOpts ...string) ([]dns.DnsRecord, error) {
 	var records []dns.DnsRecord
 
 	recordResp, _, err := d.client.Domains.ListRecords(d.root, "", "")
