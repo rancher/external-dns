@@ -2,8 +2,8 @@ package providers
 
 import (
 	"fmt"
-	"github.com/juju/ratelimit"
 	"github.com/Sirupsen/logrus"
+	"github.com/juju/ratelimit"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/route53"
 	"github.com/rancher/external-dns/dns"
@@ -51,8 +51,9 @@ func init() {
 		logrus.Fatalf("Failed to set hosted zone for root domain %s: %v", dns.RootDomainName, err)
 	}
 
-	// Throttle Route53 API calls to 5 req/s
-	limiter = ratelimit.NewBucketWithRate(5.0, 1)
+	// Throttle Route53 API calls to 3 req/s
+	// AWS limit is 5rec/s per account, so leaving the room for other clients
+	limiter = ratelimit.NewBucketWithRate(3.0, 1)
 
 	logrus.Infof("Configured %s with hosted zone \"%s\" in region \"%s\" ", route53Handler.GetName(), dns.RootDomainName, region.Name)
 }
