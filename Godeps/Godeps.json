@@ -33,12 +33,32 @@
 			"Rev": "77ed1c8a01217656d2080ad51981f6e99adaa177"
 		},
 		{
+			"ImportPath": "github.com/kolo/xmlrpc",
+			"Rev": "0826b98aaa29c0766956cb40d45cf7482a597671"
+		},
+		{
 			"ImportPath": "github.com/mitchellh/goamz/aws",
 			"Rev": "caaaea8b30ee15616494ee68abd5d8ebbbef05cf"
 		},
 		{
 			"ImportPath": "github.com/mitchellh/goamz/route53",
 			"Rev": "caaaea8b30ee15616494ee68abd5d8ebbbef05cf"
+		},
+		{
+			"ImportPath": "github.com/prasmussen/gandi-api/client",
+			"Rev": "47911529ecd365be607afe09a4fe0799e16c3ed7"
+		},
+		{
+			"ImportPath": "github.com/prasmussen/gandi-api/domain",
+			"Rev": "47911529ecd365be607afe09a4fe0799e16c3ed7"
+		},
+		{
+			"ImportPath": "github.com/prasmussen/gandi-api/operation",
+			"Rev": "47911529ecd365be607afe09a4fe0799e16c3ed7"
+		},
+		{
+			"ImportPath": "github.com/prasmussen/gandi-api/util",
+			"Rev": "47911529ecd365be607afe09a4fe0799e16c3ed7"
 		},
 		{
 			"ImportPath": "github.com/rancher/go-rancher-metadata/metadata",
