@@ -133,9 +133,9 @@ func getProviderDnsRecords() (map[string]dns.DnsRecord, error) {
 	}
 	ourRecords := make(map[string]dns.DnsRecord, len(allRecords))
 	joins := []string{m.EnvironmentName, dns.RootDomainName}
-	suffix := strings.ToLower(strings.Join(joins, "."))
+	suffix := "." + strings.ToLower(strings.Join(joins, "."))
 	for _, value := range allRecords {
-		if strings.HasSuffix(value.Fqdn, suffix) {
+		if value.Type == "A" && strings.HasSuffix(value.Fqdn, suffix) && value.TTL == dns.TTL {
 			ourRecords[value.Fqdn] = value
 		}
 	}
