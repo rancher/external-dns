@@ -97,7 +97,13 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]dns.DnsRe
 			logrus.Infof("%v", err)
 			continue
 		}
-		ip := host.AgentIP
+
+		ip, ok := host.Labels["io.rancher.host.external_dns_ip"]
+
+		if !ok || ip == "" {
+			ip = host.AgentIP
+		}
+
 		fqdn := dns.ConvertToFqdn(container.ServiceName, container.StackName, m.EnvironmentName)
 		records := []string{ip}
 		dnsEntry := dns.DnsRecord{fqdn, records, "A", dns.TTL}
