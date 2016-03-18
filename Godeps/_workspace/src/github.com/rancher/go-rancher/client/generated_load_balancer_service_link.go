@@ -10,6 +10,8 @@ type LoadBalancerServiceLink struct {
 	Ports []string `json:"ports,omitempty" yaml:"ports,omitempty"`
 
 	ServiceId string `json:"serviceId,omitempty" yaml:"service_id,omitempty"`
+
+	Uuid string `json:"uuid,omitempty" yaml:"uuid,omitempty"`
 }
 
 type LoadBalancerServiceLinkCollection struct {
@@ -56,6 +58,11 @@ func (c *LoadBalancerServiceLinkClient) List(opts *ListOpts) (*LoadBalancerServi
 func (c *LoadBalancerServiceLinkClient) ById(id string) (*LoadBalancerServiceLink, error) {
 	resp := &LoadBalancerServiceLink{}
 	err := c.rancherClient.doById(LOAD_BALANCER_SERVICE_LINK_TYPE, id, resp)
+	if apiError, ok := err.(*ApiError); ok {
+		if apiError.StatusCode == 404 {
+			return nil, nil
+		}
+	}
 	return resp, err
 }
 

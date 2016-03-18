@@ -33,6 +33,8 @@ type Host struct {
 
 	PhysicalHostId string `json:"physicalHostId,omitempty" yaml:"physical_host_id,omitempty"`
 
+	PublicEndpoints []interface{} `json:"publicEndpoints,omitempty" yaml:"public_endpoints,omitempty"`
+
 	RemoveTime string `json:"removeTime,omitempty" yaml:"remove_time,omitempty"`
 
 	Removed string `json:"removed,omitempty" yaml:"removed,omitempty"`
@@ -108,6 +110,11 @@ func (c *HostClient) List(opts *ListOpts) (*HostCollection, error) {
 func (c *HostClient) ById(id string) (*Host, error) {
 	resp := &Host{}
 	err := c.rancherClient.doById(HOST_TYPE, id, resp)
+	if apiError, ok := err.(*ApiError); ok {
+		if apiError.StatusCode == 404 {
+			return nil, nil
+		}
+	}
 	return resp, err
 }
 

@@ -36,6 +36,8 @@ func init() {
 		logrus.Fatal("Could not register cloudflare provider")
 	}
 
+	dns.SetRootDomain(getDefaultRootDomain())
+
 	cloudflareHandler.client = cloudflare.New(&cloudflare.Options{
 		Email: email,
 		Key:   apiKey,
@@ -53,6 +55,14 @@ func init() {
 
 func (*CloudflareHandler) GetName() string {
 	return "CloudFlare"
+}
+
+func (*CloudflareHandler) TestConnection() error {
+	return nil
+}
+
+func (*CloudflareHandler) GetRootDomain() string {
+	return getDefaultRootDomain()
 }
 
 func (c *CloudflareHandler) AddRecord(record dns.DnsRecord) error {
@@ -92,7 +102,7 @@ func (c *CloudflareHandler) RemoveRecord(record dns.DnsRecord) error {
 	return nil
 }
 
-func (c *CloudflareHandler) GetRecords() ([]dns.DnsRecord, error) {
+func (c *CloudflareHandler) GetRecords(listOpts ...string) ([]dns.DnsRecord, error) {
 	var records []dns.DnsRecord
 	result, err := c.client.Records.List(c.ctx, c.zone.ID)
 	if err != nil {

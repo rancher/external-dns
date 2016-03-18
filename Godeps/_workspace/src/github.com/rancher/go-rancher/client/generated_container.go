@@ -119,6 +119,8 @@ type Container struct {
 
 	SecurityOpt []string `json:"securityOpt,omitempty" yaml:"security_opt,omitempty"`
 
+	StartCount int64 `json:"startCount,omitempty" yaml:"start_count,omitempty"`
+
 	StartOnCreate bool `json:"startOnCreate,omitempty" yaml:"start_on_create,omitempty"`
 
 	State string `json:"state,omitempty" yaml:"state,omitempty"`
@@ -226,6 +228,11 @@ func (c *ContainerClient) List(opts *ListOpts) (*ContainerCollection, error) {
 func (c *ContainerClient) ById(id string) (*Container, error) {
 	resp := &Container{}
 	err := c.rancherClient.doById(CONTAINER_TYPE, id, resp)
+	if apiError, ok := err.(*ApiError); ok {
+		if apiError.StatusCode == 404 {
+			return nil, nil
+		}
+	}
 	return resp, err
 }
 

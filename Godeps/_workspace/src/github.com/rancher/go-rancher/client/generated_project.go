@@ -15,6 +15,8 @@ type Project struct {
 
 	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
 
+	Kubernetes bool `json:"kubernetes,omitempty" yaml:"kubernetes,omitempty"`
+
 	Members []interface{} `json:"members,omitempty" yaml:"members,omitempty"`
 
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
@@ -24,6 +26,8 @@ type Project struct {
 	Removed string `json:"removed,omitempty" yaml:"removed,omitempty"`
 
 	State string `json:"state,omitempty" yaml:"state,omitempty"`
+
+	Swarm bool `json:"swarm,omitempty" yaml:"swarm,omitempty"`
 
 	Transitioning string `json:"transitioning,omitempty" yaml:"transitioning,omitempty"`
 
@@ -94,6 +98,11 @@ func (c *ProjectClient) List(opts *ListOpts) (*ProjectCollection, error) {
 func (c *ProjectClient) ById(id string) (*Project, error) {
 	resp := &Project{}
 	err := c.rancherClient.doById(PROJECT_TYPE, id, resp)
+	if apiError, ok := err.(*ApiError); ok {
+		if apiError.StatusCode == 404 {
+			return nil, nil
+		}
+	}
 	return resp, err
 }
 

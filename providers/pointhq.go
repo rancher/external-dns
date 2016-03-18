@@ -61,6 +61,14 @@ func (*PointHQHandler) GetName() string {
 	return "PointHQ"
 }
 
+func (*PointHQHandler) TestConnection() error {
+	return nil
+}
+
+func (*PointHQHandler) GetRootDomain() string {
+	return getDefaultRootDomain()
+}
+
 func (d *PointHQHandler) parseName(record dns.DnsRecord) string {
 	name := strings.TrimSuffix(record.Fqdn, fmt.Sprintf(".%s.", d.root))
 
@@ -127,7 +135,7 @@ func (d *PointHQHandler) RemoveRecord(record dns.DnsRecord) error {
 	return nil
 }
 
-func (d *PointHQHandler) GetRecords() ([]dns.DnsRecord, error) {
+func (d *PointHQHandler) GetRecords(listOpts ...string) ([]dns.DnsRecord, error) {
 	var records []dns.DnsRecord
 
 	recordResp, err := d.zone.Records()

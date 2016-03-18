@@ -23,8 +23,6 @@ type ExternalVolumeEvent struct {
 
 	State string `json:"state,omitempty" yaml:"state,omitempty"`
 
-	StoragePoolExternalId string `json:"storagePoolExternalId,omitempty" yaml:"storage_pool_external_id,omitempty"`
-
 	Transitioning string `json:"transitioning,omitempty" yaml:"transitioning,omitempty"`
 
 	TransitioningMessage string `json:"transitioningMessage,omitempty" yaml:"transitioning_message,omitempty"`
@@ -84,6 +82,11 @@ func (c *ExternalVolumeEventClient) List(opts *ListOpts) (*ExternalVolumeEventCo
 func (c *ExternalVolumeEventClient) ById(id string) (*ExternalVolumeEvent, error) {
 	resp := &ExternalVolumeEvent{}
 	err := c.rancherClient.doById(EXTERNAL_VOLUME_EVENT_TYPE, id, resp)
+	if apiError, ok := err.(*ApiError); ok {
+		if apiError.StatusCode == 404 {
+			return nil, nil
+		}
+	}
 	return resp, err
 }
 

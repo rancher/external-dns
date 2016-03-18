@@ -17,6 +17,8 @@ type DnsService struct {
 
 	EnvironmentId string `json:"environmentId,omitempty" yaml:"environment_id,omitempty"`
 
+	ExternalId string `json:"externalId,omitempty" yaml:"external_id,omitempty"`
+
 	Fqdn string `json:"fqdn,omitempty" yaml:"fqdn,omitempty"`
 
 	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
@@ -116,6 +118,11 @@ func (c *DnsServiceClient) List(opts *ListOpts) (*DnsServiceCollection, error) {
 func (c *DnsServiceClient) ById(id string) (*DnsService, error) {
 	resp := &DnsService{}
 	err := c.rancherClient.doById(DNS_SERVICE_TYPE, id, resp)
+	if apiError, ok := err.(*ApiError); ok {
+		if apiError.StatusCode == 404 {
+			return nil, nil
+		}
+	}
 	return resp, err
 }
 

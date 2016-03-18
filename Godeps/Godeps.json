@@ -62,12 +62,16 @@
 		},
 		{
 			"ImportPath": "github.com/rancher/go-rancher-metadata/metadata",
-			"Rev": "9f075a094b0c421ae795af18dba1c8ee45d81ff7"
+			"Rev": "67878ca5fd1b5662108e44720ebbc65605ff62a8"
 		},
 		{
 			"ImportPath": "github.com/rancher/go-rancher/client",
-			"Comment": "v0.1.0-82-g465def4",
-			"Rev": "465def4b0436df65693acbb3e3c6ed1bdec79e24"
+			"Comment": "v0.1.0-125-g5124e96",
+			"Rev": "5124e96d94b12da2b3c2074a9cd6dc6834be29d2"
+		},
+		{
+			"ImportPath": "github.com/rancher/public-dns-client/client",
+			"Rev": "2b1f81d353ebc0f85636ddbf47819a4a6c3d5728"
 		},
 		{
 			"ImportPath": "github.com/vaughan0/go-ini",
@@ -80,6 +84,10 @@
 		{
 			"ImportPath": "golang.org/x/net/context",
 			"Rev": "633434aadc5ed438f45bc0efbb52c3a1ad7e64b9"
+		},
+		{
+			"ImportPath": "gopkg.in/yaml.v2",
+			"Rev": "49c95bdc21843256fb6c4e0d370a05f24a0bf213"
 		}
 	]
 }

@@ -37,6 +37,8 @@ type Cluster struct {
 
 	Port int64 `json:"port,omitempty" yaml:"port,omitempty"`
 
+	PublicEndpoints []interface{} `json:"publicEndpoints,omitempty" yaml:"public_endpoints,omitempty"`
+
 	RemoveTime string `json:"removeTime,omitempty" yaml:"remove_time,omitempty"`
 
 	Removed string `json:"removed,omitempty" yaml:"removed,omitempty"`
@@ -116,6 +118,11 @@ func (c *ClusterClient) List(opts *ListOpts) (*ClusterCollection, error) {
 func (c *ClusterClient) ById(id string) (*Cluster, error) {
 	resp := &Cluster{}
 	err := c.rancherClient.doById(CLUSTER_TYPE, id, resp)
+	if apiError, ok := err.(*ApiError); ok {
+		if apiError.StatusCode == 404 {
+			return nil, nil
+		}
+	}
 	return resp, err
 }
 
