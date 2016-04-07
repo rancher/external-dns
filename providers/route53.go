@@ -65,6 +65,11 @@ func init() {
 }
 
 func (r *Route53Handler) setHostedZone() error {
+	if envVal := os.Getenv("ROUTE53_ZONE_ID"); envVal != "" {
+		r.hostedZoneId = strings.TrimSpace(envVal)
+		return nil
+	}
+	
 	r.limiter.Wait(1)
 	params := &route53.ListHostedZonesByNameInput{
 		DNSName:  aws.String(strings.TrimSuffix(dns.RootDomainName, ".")),
