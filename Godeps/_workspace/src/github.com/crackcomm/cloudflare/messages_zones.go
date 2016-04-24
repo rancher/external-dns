@@ -1,6 +1,10 @@
 package cloudflare
 
-import "time"
+import (
+	"bytes"
+	"encoding/json"
+	"time"
+)
 
 // Zone - Cloudflare Zone.
 type Zone struct {
@@ -34,12 +38,37 @@ type ZoneOwner struct {
 
 // ZoneMeta -
 type ZoneMeta struct {
-	Step                    int    `json:"step,omitempty"`
-	PageRuleQuota           string `json:"page_rule_quota,omitempty"`
-	CustomCertificateQuota  int    `json:"custom_certificate_quota,omitempty"`
-	WildcardProxiable       bool   `json:"wildcard_proxiable,omitempty"`
-	PhishingDetected        bool   `json:"phishing_detected,omitempty"`
-	MultipleRailgunsAllowed bool   `json:"multiple_railguns_allowed,omitempty"`
+	Step                    int  `json:"step,omitempty"`
+	PageRuleQuota           int  `json:"page_rule_quota,omitempty"`
+	CustomCertificateQuota  int  `json:"custom_certificate_quota,omitempty"`
+	WildcardProxiable       bool `json:"wildcard_proxiable,omitempty"`
+	PhishingDetected        bool `json:"phishing_detected,omitempty"`
+	MultipleRailgunsAllowed bool `json:"multiple_railguns_allowed,omitempty"`
+}
+
+func (m *ZoneMeta) UnmarshalJSON(data []byte) error {
+	f := struct {
+		Step                    int          `json:"step,omitempty"`
+		PageRuleQuota           int          `json:"page_rule_quota,omitempty"`
+		CustomCertificateQuota  *maybeNumber `json:"custom_certificate_quota,omitempty"`
+		WildcardProxiable       bool         `json:"wildcard_proxiable,omitempty"`
+		PhishingDetected        bool         `json:"phishing_detected,omitempty"`
+		MultipleRailgunsAllowed bool         `json:"multiple_railguns_allowed,omitempty"`
+	}{}
+
+	err := json.Unmarshal(data, &f)
+	if err != nil {
+		return err
+	}
+
+	m.CustomCertificateQuota = f.CustomCertificateQuota.value
+	m.MultipleRailgunsAllowed = f.MultipleRailgunsAllowed
+	m.PageRuleQuota = f.PageRuleQuota
+	m.PhishingDetected = f.PhishingDetected
+	m.Step = f.Step
+	m.WildcardProxiable = f.WildcardProxiable
+
+	return nil
 }
 
 // ZonePlan -
@@ -60,4 +89,16 @@ type ZonePatch struct {
 	Plan              *ZonePlan `json:"plan,omitempty"`
 	Paused            bool      `json:"paused,omitempty"`
 	VanityNameServers []string  `json:"vanity_name_servers,omitempty"`
+}
+
+// maybeNumber is an intermediate type to cope with the inconsistent responses
+// for CustomCertificateQuota which can be a string or a number.
+type maybeNumber struct {
+	value int
+}
+
+func (m *maybeNumber) UnmarshalJSON(data []byte) error {
+	data = bytes.Trim(data, `"`)
+
+	return json.Unmarshal(data, &m.value)
 }

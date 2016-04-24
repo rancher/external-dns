@@ -13,7 +13,8 @@ type Record struct {
 	Proxied   bool `json:"proxied,omitempty"`
 	Locked    bool `json:"locked,omitempty"`
 
-	TTL int `json:"ttl,omitempty"`
+	TTL      int `json:"ttl,omitempty"`
+	Priority int `json:"priority,omitempty"`
 
 	CreatedOn  time.Time `json:"created_on,omitempty"`
 	ModifiedOn time.Time `json:"modified_on,omitempty"`

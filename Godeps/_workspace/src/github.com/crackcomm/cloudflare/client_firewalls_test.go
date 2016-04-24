@@ -6,8 +6,8 @@ import (
 	"golang.org/x/net/context"
 )
 
-// ExampleRecords_List - Lists all zone DNS records.
-func ExampleRecords_List(ctx context.Context, client *Client) {
+// ExampleFirewalls_List - Lists all firewall rules for a zone.
+func ExampleFirewalls_List(ctx context.Context, client *Client) {
 	zones, err := client.Zones.List(ctx)
 	if err != nil {
 		log.Fatal(err)
@@ -15,12 +15,12 @@ func ExampleRecords_List(ctx context.Context, client *Client) {
 		log.Fatal("No zones were found")
 	}
 
-	records, err := client.Records.List(ctx, zones[0].ID)
+	rules, err := client.Firewalls.List(ctx, zones[0].ID)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, record := range records {
-		log.Printf("%#v", record)
+	for _, rule := range rules {
+		log.Printf("%#v", rule)
 	}
 }

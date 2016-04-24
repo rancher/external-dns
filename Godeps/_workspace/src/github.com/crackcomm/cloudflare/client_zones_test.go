@@ -6,8 +6,8 @@ import (
 	"golang.org/x/net/context"
 )
 
-// ExampleZonesList - Lists all zones.
-func ExampleZonesList(ctx context.Context, client *Client) {
+// ExampleZones_List - Lists all zones.
+func ExampleZones_List(ctx context.Context, client *Client) {
 	zones, err := client.Zones.List(ctx)
 	if err != nil {
 		log.Fatal(err)
@@ -18,8 +18,8 @@ func ExampleZonesList(ctx context.Context, client *Client) {
 	}
 }
 
-// ExampleZoneDetails - Gets zone details by ID.
-func ExampleZoneDetails(ctx context.Context, client *Client) {
+// ExampleZones_Details - Gets zone details by ID.
+func ExampleZones_Details(ctx context.Context, client *Client) {
 	zones, err := client.Zones.List(ctx)
 	if err != nil {
 		log.Fatal(err)
@@ -35,8 +35,8 @@ func ExampleZoneDetails(ctx context.Context, client *Client) {
 	log.Printf("Got %s = %#v", zones[0].ID, zone)
 }
 
-// ExampleZoneDelete - Deletes zone by ID.
-func ExampleZoneDelete(ctx context.Context, client *Client) {
+// ExampleZones_Delete - Deletes zone by ID.
+func ExampleZones_Delete(ctx context.Context, client *Client) {
 	zones, err := client.Zones.List(ctx)
 	if err != nil {
 		log.Fatal(err)
