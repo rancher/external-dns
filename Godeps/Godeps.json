@@ -1,6 +1,7 @@
 {
 	"ImportPath": "github.com/rancher/external-dns",
 	"GoVersion": "go1.5.1",
+	"GodepVersion": "v62",
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
@@ -124,7 +125,7 @@
 		},
 		{
 			"ImportPath": "github.com/crackcomm/cloudflare",
-			"Rev": "fddeb905945baf3fd946a5fdfa80eb66e7ad363f"
+			"Rev": "a60ec0b4c5e4c44b522040a54293f7f93cf5b887"
 		},
 		{
 			"ImportPath": "github.com/go-ini/ini",
