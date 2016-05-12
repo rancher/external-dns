@@ -159,6 +159,10 @@ func (r *Route53Handler) GetRecords() ([]dns.DnsRecord, error) {
 	}
 
 	for _, rrSet := range rrSets {
+		// skip proprietary Route 53 alias resource record sets
+		if rrSet.AliasTarget != nil {
+			continue
+		}
 		records := []string{}
 		for _, rr := range rrSet.ResourceRecords {
 			records = append(records, *rr.Value)
