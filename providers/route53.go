@@ -67,6 +67,9 @@ func init() {
 func (r *Route53Handler) setHostedZone() error {
 	if envVal := os.Getenv("ROUTE53_ZONE_ID"); envVal != "" {
 		r.hostedZoneId = strings.TrimSpace(envVal)
+		if err := r.validateHostedZoneId(); err != nil {
+			return err
+		}
 		return nil
 	}
 	
@@ -90,6 +93,25 @@ func (r *Route53Handler) setHostedZone() error {
 	}
 
 	r.hostedZoneId = zoneId
+	return nil
+}
+
+func (r *Route53Handler) validateHostedZoneId() error {
+	r.limiter.Wait(1)
+	params := &route53.GetHostedZoneInput{
+		Id: aws.String(r.hostedZoneId),
+	}
+	resp, err := r.client.GetHostedZone(params)
+	if err != nil {
+		return fmt.Errorf("Could not look up hosted zone ID: %v",
+			r.hostedZoneId, err)
+	}
+
+	if *resp.HostedZone.Name != dns.RootDomainName {
+		return fmt.Errorf("Hosted zone ID '%s' does not match name '%s'",
+			r.hostedZoneId, dns.RootDomainName)
+	}
+
 	return nil
 }
 
