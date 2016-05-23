@@ -6,12 +6,12 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/dns"
 	gandi "github.com/prasmussen/gandi-api/client"
 	gandiDomain "github.com/prasmussen/gandi-api/domain"
 	gandiZone "github.com/prasmussen/gandi-api/domain/zone"
-	gandiZoneVersion "github.com/prasmussen/gandi-api/domain/zone/version"
 	gandiRecord "github.com/prasmussen/gandi-api/domain/zone/record"
+	gandiZoneVersion "github.com/prasmussen/gandi-api/domain/zone/version"
+	"github.com/rancher/external-dns/dns"
 )
 
 type GandiHandler struct {
@@ -51,7 +51,7 @@ func init() {
 
 	root := strings.TrimSuffix(dns.RootDomainName, ".")
 	split_root := strings.Split(root, ".")
-	split_zoneDomain := split_root[len(split_root)-2:len(split_root)]
+	split_zoneDomain := split_root[len(split_root)-2 : len(split_root)]
 	zoneDomain := strings.Join(split_zoneDomain, ".")
 
 	domain := gandiDomain.New(client)
@@ -96,7 +96,7 @@ func (*GandiHandler) GetName() string {
 func (g *GandiHandler) AddRecord(record dns.DnsRecord) error {
 	newVersion, err := g.newZoneVersion()
 	if err != nil {
-			return fmt.Errorf("Failed to add new record: %v", err)
+		return fmt.Errorf("Failed to add new record: %v", err)
 	}
 
 	if err := g.versionAddRecord(newVersion, record); err != nil {
@@ -113,7 +113,7 @@ func (g *GandiHandler) AddRecord(record dns.DnsRecord) error {
 func (g *GandiHandler) UpdateRecord(record dns.DnsRecord) error {
 	newVersion, err := g.newZoneVersion()
 	if err != nil {
-			return fmt.Errorf("Failed to update record: %v", err)
+		return fmt.Errorf("Failed to update record: %v", err)
 	}
 
 	if err := g.versionRemoveRecord(newVersion, record); err != nil {
@@ -134,7 +134,7 @@ func (g *GandiHandler) UpdateRecord(record dns.DnsRecord) error {
 func (g *GandiHandler) RemoveRecord(record dns.DnsRecord) error {
 	newVersion, err := g.newZoneVersion()
 	if err != nil {
-			return fmt.Errorf("Failed to remove record: %v", err)
+		return fmt.Errorf("Failed to remove record: %v", err)
 	}
 
 	if err := g.versionRemoveRecord(newVersion, record); err != nil {
@@ -276,7 +276,7 @@ func (g *GandiHandler) newZoneVersion() (int64, error) {
 	return newVersion, nil
 }
 
-func (g *GandiHandler) setZoneVersion(version int64) (error) {
+func (g *GandiHandler) setZoneVersion(version int64) error {
 	_, err := g.zoneVersion.Set(g.zone.Id, version)
 	if err != nil {
 		logrus.Fatalf("Failed to set version of zone %s to %v: %v", g.zone.Name, version, err)

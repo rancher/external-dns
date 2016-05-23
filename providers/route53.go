@@ -69,7 +69,7 @@ func (r *Route53Handler) setHostedZone() error {
 		r.hostedZoneId = strings.TrimSpace(envVal)
 		return nil
 	}
-	
+
 	r.limiter.Wait(1)
 	params := &route53.ListHostedZonesByNameInput{
 		DNSName:  aws.String(strings.TrimSuffix(dns.RootDomainName, ".")),
@@ -167,12 +167,12 @@ func (r *Route53Handler) GetRecords() ([]dns.DnsRecord, error) {
 		for _, rr := range rrSet.ResourceRecords {
 			records = append(records, *rr.Value)
 		}
-		
+
 		dnsRecord := dns.DnsRecord{
-			Fqdn: *rrSet.Name,
+			Fqdn:    *rrSet.Name,
 			Records: records,
-			Type: *rrSet.Type,
-			TTL: int(*rrSet.TTL),
+			Type:    *rrSet.Type,
+			TTL:     int(*rrSet.TTL),
 		}
 		dnsRecords = append(dnsRecords, dnsRecord)
 	}
