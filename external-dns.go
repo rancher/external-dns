@@ -41,29 +41,31 @@ func addMissingRecords(metadataRecs map[string]dns.DnsRecord, providerRecs map[s
 
 func updateRecords(toChange []dns.DnsRecord, op *Op) []dns.DnsRecord {
 	var changed []dns.DnsRecord
+	var err error
 	for _, value := range toChange {
 		switch *op {
 		case Add:
 			logrus.Infof("Adding dns record: %v", value)
-			if err := provider.AddRecord(value); err != nil {
+			if err = provider.AddRecord(value); err != nil {
 				logrus.Errorf("Failed to add DNS record to provider %v: %v", value, err)
 			} else {
 				changed = append(changed, value)
 			}
 		case Remove:
 			logrus.Infof("Removing dns record: %v", value)
-			if err := provider.RemoveRecord(value); err != nil {
+			if err = provider.RemoveRecord(value); err != nil {
 				logrus.Errorf("Failed to remove DNS record from provider %v: %v", value, err)
 			}
 		case Update:
 			logrus.Infof("Updating dns record: %v", value)
-			if err := provider.UpdateRecord(value); err != nil {
+			if err = provider.UpdateRecord(value); err != nil {
 				logrus.Errorf("Failed to update DNS record to provider %v: %v", value, err)
 			} else {
 				changed = append(changed, value)
 			}
 		}
 	}
+	checkProviderError(err)
 	return changed
 }
 
@@ -128,6 +130,7 @@ func removeExtraRecords(metadataRecs map[string]dns.DnsRecord, providerRecs map[
 
 func getProviderDnsRecords() (map[string]dns.DnsRecord, error) {
 	allRecords, err := provider.GetRecords()
+	checkProviderError(err)
 	if err != nil {
 		return nil, err
 	}
