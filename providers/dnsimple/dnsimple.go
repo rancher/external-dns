@@ -1,74 +1,77 @@
-package providers
+package dnsimple
 
 import (
 	"fmt"
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/dns"
-	"github.com/weppos/go-dnsimple/dnsimple"
 	"os"
 	"strings"
+
+	"github.com/Sirupsen/logrus"
+	"github.com/rancher/external-dns/providers"
+	"github.com/rancher/external-dns/utils"
+	api "github.com/weppos/go-dnsimple/dnsimple"
 )
 
+type DNSimpleProvider struct {
+	client *api.Client
+	root   string
+}
+
 func init() {
-	apiToken := os.Getenv("DNSIMPLE_TOKEN")
-	if len(apiToken) == 0 {
-		logrus.Info("DNSIMPLE_TOKEN is not set, skipping init of DNSimple provider")
-		return
+	providers.RegisterProvider("dnsimple", &DNSimpleProvider{})
+}
+
+func (d *DNSimpleProvider) Init(rootDomainName string) error {
+	var email, apiToken string
+	if email = os.Getenv("DNSIMPLE_EMAIL"); len(email) == 0 {
+		return fmt.Errorf("DNSIMPLE_EMAIL is not set")
 	}
 
-	email := os.Getenv("DNSIMPLE_EMAIL")
-	if len(email) == 0 {
-		logrus.Info("DNSIMPLE_EMAIL is not set, skipping init of DNSimple provider")
-		return
+	if apiToken = os.Getenv("DNSIMPLE_TOKEN"); len(apiToken) == 0 {
+		return fmt.Errorf("DNSIMPLE_TOKEN is not set")
 	}
 
-	dnsimpleHandler := &DNSimpleHandler{}
-	if err := RegisterProvider("dnsimple", dnsimpleHandler); err != nil {
-		logrus.Fatal("Could not register dnsimple provider")
-	}
+	d.root = utils.UnFqdn(rootDomainName)
+	d.client = api.NewClient(apiToken, email)
 
-	dnsimpleHandler.root = strings.TrimSuffix(dns.RootDomainName, ".")
-	dnsimpleHandler.client = dnsimple.NewClient(apiToken, email)
-
-	domains, _, err := dnsimpleHandler.client.Domains.List()
+	domains, _, err := d.client.Domains.List()
 	if err != nil {
-		logrus.Fatalf("Failed to list hosted zones: %v", err)
+		return fmt.Errorf("Failed to list zones: %v", err)
 	}
 
 	found := false
 	for _, domain := range domains {
-		if domain.Name == dnsimpleHandler.root {
+		if domain.Name == d.root {
 			found = true
 			break
 		}
 	}
 
 	if !found {
-		logrus.Fatalf("Hosted zone %s is missing", dnsimpleHandler.root)
+		return fmt.Errorf("Zone for '%s' not found", d.root)
 	}
 
-	logrus.Infof("Configured %s with hosted zone %q ", dnsimpleHandler.GetName(), dnsimpleHandler.root)
+	logrus.Infof("Configured %s with zone '%s'", d.GetName(), d.root)
+	return nil
 }
 
-type DNSimpleHandler struct {
-	client *dnsimple.Client
-	root   string
-}
-
-func (*DNSimpleHandler) GetName() string {
+func (*DNSimpleProvider) GetName() string {
 	return "DNSimple"
 }
 
-func (d *DNSimpleHandler) parseName(record dns.DnsRecord) string {
-	name := strings.TrimSuffix(record.Fqdn, fmt.Sprintf(".%s.", d.root))
+func (d *DNSimpleProvider) HealthCheck() error {
+	_, _, err := d.client.Users.User()
+	return err
+}
 
+func (d *DNSimpleProvider) parseName(record utils.DnsRecord) string {
+	name := strings.TrimSuffix(record.Fqdn, fmt.Sprintf(".%s.", d.root))
 	return name
 }
 
-func (d *DNSimpleHandler) AddRecord(record dns.DnsRecord) error {
+func (d *DNSimpleProvider) AddRecord(record utils.DnsRecord) error {
 	name := d.parseName(record)
 	for _, rec := range record.Records {
-		recordInput := dnsimple.Record{
+		recordInput := api.Record{
 			Name:    name,
 			TTL:     record.TTL,
 			Type:    record.Type,
@@ -83,8 +86,8 @@ func (d *DNSimpleHandler) AddRecord(record dns.DnsRecord) error {
 	return nil
 }
 
-func (d *DNSimpleHandler) findRecords(record dns.DnsRecord) ([]dnsimple.Record, error) {
-	var records []dnsimple.Record
+func (d *DNSimpleProvider) findRecords(record utils.DnsRecord) ([]api.Record, error) {
+	var records []api.Record
 	resp, _, err := d.client.Domains.ListRecords(d.root, "", "")
 	if err != nil {
 		return records, fmt.Errorf("DNSimple API call has failed: %v", err)
@@ -100,7 +103,7 @@ func (d *DNSimpleHandler) findRecords(record dns.DnsRecord) ([]dnsimple.Record, 
 	return records, nil
 }
 
-func (d *DNSimpleHandler) UpdateRecord(record dns.DnsRecord) error {
+func (d *DNSimpleProvider) UpdateRecord(record utils.DnsRecord) error {
 	err := d.RemoveRecord(record)
 	if err != nil {
 		return err
@@ -109,7 +112,7 @@ func (d *DNSimpleHandler) UpdateRecord(record dns.DnsRecord) error {
 	return d.AddRecord(record)
 }
 
-func (d *DNSimpleHandler) RemoveRecord(record dns.DnsRecord) error {
+func (d *DNSimpleProvider) RemoveRecord(record utils.DnsRecord) error {
 	records, err := d.findRecords(record)
 	if err != nil {
 		return err
@@ -125,8 +128,8 @@ func (d *DNSimpleHandler) RemoveRecord(record dns.DnsRecord) error {
 	return nil
 }
 
-func (d *DNSimpleHandler) GetRecords() ([]dns.DnsRecord, error) {
-	var records []dns.DnsRecord
+func (d *DNSimpleProvider) GetRecords() ([]utils.DnsRecord, error) {
+	var records []utils.DnsRecord
 
 	recordResp, _, err := d.client.Domains.ListRecords(d.root, "", "")
 	if err != nil {
@@ -139,9 +142,9 @@ func (d *DNSimpleHandler) GetRecords() ([]dns.DnsRecord, error) {
 	for _, rec := range recordResp {
 		var fqdn string
 		if rec.Name == "" {
-			fqdn = dns.RootDomainName
+			fqdn = d.root + "."
 		} else {
-			fqdn = fmt.Sprintf("%s.%s", rec.Name, dns.RootDomainName)
+			fqdn = fmt.Sprintf("%s.%s.", rec.Name, d.root)
 		}
 
 		recordTTLs[fqdn] = map[string]int{}
@@ -164,7 +167,7 @@ func (d *DNSimpleHandler) GetRecords() ([]dns.DnsRecord, error) {
 	for fqdn, recordSet := range recordMap {
 		for recordType, recordSlice := range recordSet {
 			ttl := recordTTLs[fqdn][recordType]
-			record := dns.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: ttl}
+			record := utils.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: ttl}
 			records = append(records, record)
 		}
 	}

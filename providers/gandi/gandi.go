@@ -1,4 +1,4 @@
-package providers
+package gandi
 
 import (
 	"fmt"
@@ -6,19 +6,22 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/dns"
-	gandi "github.com/prasmussen/gandi-api/client"
+	gandiClient "github.com/prasmussen/gandi-api/client"
 	gandiDomain "github.com/prasmussen/gandi-api/domain"
 	gandiZone "github.com/prasmussen/gandi-api/domain/zone"
-	gandiZoneVersion "github.com/prasmussen/gandi-api/domain/zone/version"
 	gandiRecord "github.com/prasmussen/gandi-api/domain/zone/record"
+	gandiZoneVersion "github.com/prasmussen/gandi-api/domain/zone/version"
+	gandiOperation "github.com/prasmussen/gandi-api/operation"
+	"github.com/rancher/external-dns/providers"
+	"github.com/rancher/external-dns/utils"
 )
 
-type GandiHandler struct {
+type GandiProvider struct {
 	record      *gandiRecord.Record
 	zoneHandler *gandiZone.Zone
 	zone        *gandiZone.ZoneInfoBase
 	zoneVersion *gandiZoneVersion.Version
+	operation   *gandiOperation.Operation
 	root        string
 	zoneDomain  string
 	zoneSuffix  string
@@ -26,77 +29,81 @@ type GandiHandler struct {
 }
 
 func init() {
-	gandiHandler := &GandiHandler{}
+	providers.RegisterProvider("gandi", &GandiProvider{})
+}
 
-	apiKey := os.Getenv("GANDI_APIKEY")
-	if len(apiKey) == 0 {
-		logrus.Infof("GANDI_APIKEY is not set, skipping init of %s provider", gandiHandler.GetName())
-		return
+func (g *GandiProvider) Init(rootDomainName string) error {
+	var apiKey string
+	if apiKey = os.Getenv("GANDI_APIKEY"); len(apiKey) == 0 {
+		return fmt.Errorf("GANDI_APIKEY is not set")
 	}
 
-	if err := RegisterProvider("gandi", gandiHandler); err != nil {
-		logrus.Fatal("Could not register Gandi provider")
-	}
-
-	systemType := gandi.Production
+	systemType := gandiClient.Production
 	testing := os.Getenv("GANDI_TESTING")
 	if len(testing) != 0 {
 		logrus.Infof("GANDI_TESTING is set, using testing platform")
-		systemType = gandi.Testing
+		systemType = gandiClient.Testing
 	}
 
-	client := gandi.New(apiKey, systemType)
-	gandiHandler.record = gandiRecord.New(client)
-	gandiHandler.zoneVersion = gandiZoneVersion.New(client)
+	client := gandiClient.New(apiKey, systemType)
+	g.record = gandiRecord.New(client)
+	g.zoneVersion = gandiZoneVersion.New(client)
+	g.operation = gandiOperation.New(client)
 
-	root := strings.TrimSuffix(dns.RootDomainName, ".")
+	root := utils.UnFqdn(rootDomainName)
 	split_root := strings.Split(root, ".")
-	split_zoneDomain := split_root[len(split_root)-2:len(split_root)]
+	split_zoneDomain := split_root[len(split_root)-2 : len(split_root)]
 	zoneDomain := strings.Join(split_zoneDomain, ".")
 
 	domain := gandiDomain.New(client)
 	domainInfo, err := domain.Info(zoneDomain)
 	if err != nil {
-		logrus.Fatalf("Failed to get zone ID for domain %s: %v", zoneDomain, err)
+		return fmt.Errorf("Failed to get zone ID for domain %s: %v", zoneDomain, err)
 	}
 	zoneId := domainInfo.ZoneId
 
 	zone := gandiZone.New(client)
 	zones, err := zone.List()
 	if err != nil {
-		logrus.Fatalf("Failed to list hosted zones: %v", err)
+		return fmt.Errorf("Failed to list hosted zones: %v", err)
 	}
 
 	found := false
 	for _, z := range zones {
 		if z.Id == zoneId {
-			gandiHandler.root = root
-			gandiHandler.zone = z
+			g.root = root
+			g.zone = z
 			found = true
 			break
 		}
 	}
 
 	if !found {
-		logrus.Fatalf("Hosted zone %s is missing", root)
+		return fmt.Errorf("Zone for '%s' not found", root)
 	}
 
-	gandiHandler.zoneDomain = zoneDomain
-	gandiHandler.zoneSuffix = fmt.Sprintf(".%s", zoneDomain)
-	gandiHandler.sub = strings.TrimSuffix(root, zoneDomain)
-	gandiHandler.zoneHandler = zone
+	g.zoneDomain = zoneDomain
+	g.zoneSuffix = fmt.Sprintf(".%s", zoneDomain)
+	g.sub = strings.TrimSuffix(root, zoneDomain)
+	g.zoneHandler = zone
 
-	logrus.Infof("Configured %s for domain %s using hosted zone %q ", gandiHandler.GetName(), root, gandiHandler.zone.Name)
+	logrus.Infof("Configured %s for domain '%s' using zone '%s'", g.GetName(), root, g.zone.Name)
+	return nil
 }
 
-func (*GandiHandler) GetName() string {
+func (*GandiProvider) GetName() string {
 	return "Gandi"
 }
 
-func (g *GandiHandler) AddRecord(record dns.DnsRecord) error {
+func (g *GandiProvider) HealthCheck() error {
+	_, err := g.operation.Count()
+	return err
+}
+
+func (g *GandiProvider) AddRecord(record utils.DnsRecord) error {
 	newVersion, err := g.newZoneVersion()
 	if err != nil {
-			return fmt.Errorf("Failed to add new record: %v", err)
+		return fmt.Errorf("Failed to add new record: %v", err)
 	}
 
 	if err := g.versionAddRecord(newVersion, record); err != nil {
@@ -110,10 +117,10 @@ func (g *GandiHandler) AddRecord(record dns.DnsRecord) error {
 	return nil
 }
 
-func (g *GandiHandler) UpdateRecord(record dns.DnsRecord) error {
+func (g *GandiProvider) UpdateRecord(record utils.DnsRecord) error {
 	newVersion, err := g.newZoneVersion()
 	if err != nil {
-			return fmt.Errorf("Failed to update record: %v", err)
+		return fmt.Errorf("Failed to update record: %v", err)
 	}
 
 	if err := g.versionRemoveRecord(newVersion, record); err != nil {
@@ -131,10 +138,10 @@ func (g *GandiHandler) UpdateRecord(record dns.DnsRecord) error {
 	return err
 }
 
-func (g *GandiHandler) RemoveRecord(record dns.DnsRecord) error {
+func (g *GandiProvider) RemoveRecord(record utils.DnsRecord) error {
 	newVersion, err := g.newZoneVersion()
 	if err != nil {
-			return fmt.Errorf("Failed to remove record: %v", err)
+		return fmt.Errorf("Failed to remove record: %v", err)
 	}
 
 	if err := g.versionRemoveRecord(newVersion, record); err != nil {
@@ -148,7 +155,7 @@ func (g *GandiHandler) RemoveRecord(record dns.DnsRecord) error {
 	return nil
 }
 
-func (g *GandiHandler) findRecords(record dns.DnsRecord, version int64) ([]gandiRecord.RecordInfo, error) {
+func (g *GandiProvider) findRecords(record utils.DnsRecord, version int64) ([]gandiRecord.RecordInfo, error) {
 	var records []gandiRecord.RecordInfo
 	resp, err := g.record.List(g.zone.Id, version)
 	if err != nil {
@@ -166,8 +173,8 @@ func (g *GandiHandler) findRecords(record dns.DnsRecord, version int64) ([]gandi
 	return records, nil
 }
 
-func (g *GandiHandler) GetRecords() ([]dns.DnsRecord, error) {
-	var records []dns.DnsRecord
+func (g *GandiProvider) GetRecords() ([]utils.DnsRecord, error) {
+	var records []utils.DnsRecord
 
 	recordResp, err := g.record.List(g.zone.Id, g.zone.Version)
 	if err != nil {
@@ -205,7 +212,7 @@ func (g *GandiHandler) GetRecords() ([]dns.DnsRecord, error) {
 	for fqdn, recordSet := range recordMap {
 		for recordType, recordSlice := range recordSet {
 			ttl := recordTTLs[fqdn][recordType]
-			record := dns.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: ttl}
+			record := utils.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: ttl}
 			records = append(records, record)
 		}
 	}
@@ -213,14 +220,12 @@ func (g *GandiHandler) GetRecords() ([]dns.DnsRecord, error) {
 	return records, nil
 }
 
-func (g *GandiHandler) parseName(record dns.DnsRecord) string {
+func (g *GandiProvider) parseName(record utils.DnsRecord) string {
 	name := strings.TrimSuffix(record.Fqdn, g.zoneSuffix)
-
 	return name
 }
 
-func (g *GandiHandler) versionAddRecord(version int64, record dns.DnsRecord) error {
-
+func (g *GandiProvider) versionAddRecord(version int64, record utils.DnsRecord) error {
 	name := g.parseName(record)
 	for _, rec := range record.Records {
 		suffix := fmt.Sprintf(".%s.", g.zoneDomain)
@@ -244,7 +249,7 @@ func (g *GandiHandler) versionAddRecord(version int64, record dns.DnsRecord) err
 	return nil
 }
 
-func (g *GandiHandler) versionRemoveRecord(version int64, record dns.DnsRecord) error {
+func (g *GandiProvider) versionRemoveRecord(version int64, record utils.DnsRecord) error {
 	records, err := g.findRecords(record, version)
 	if err != nil {
 		return err
@@ -261,26 +266,26 @@ func (g *GandiHandler) versionRemoveRecord(version int64, record dns.DnsRecord) 
 	return nil
 }
 
-func (g *GandiHandler) newZoneVersion() (int64, error) {
+func (g *GandiProvider) newZoneVersion() (int64, error) {
 	// Get latest zone version
 	zoneInfo, err := g.zoneHandler.Info(g.zone.Id)
 	if err != nil {
-		logrus.Fatalf("Failed to refresh zone information: %v", g.zone.Name, err)
+		return 0, fmt.Errorf("Failed to refresh zone information: %v", g.zone.Name, err)
 	}
 
 	newVersion, err := g.zoneVersion.New(g.zone.Id, zoneInfo.Version)
 	if err != nil {
-		logrus.Fatalf("Failed to create new version of zone %s: %v", g.zone.Name, err)
+		return 0, fmt.Errorf("Failed to create new version of zone %s: %v", g.zone.Name, err)
 	}
 
 	return newVersion, nil
 }
 
-func (g *GandiHandler) setZoneVersion(version int64) (error) {
+func (g *GandiProvider) setZoneVersion(version int64) error {
 	_, err := g.zoneVersion.Set(g.zone.Id, version)
 	if err != nil {
-		logrus.Fatalf("Failed to set version of zone %s to %v: %v", g.zone.Name, version, err)
+		return fmt.Errorf("Failed to set version of zone %s to %v: %v", g.zone.Name, version, err)
 	}
 
-	return err
+	return nil
 }

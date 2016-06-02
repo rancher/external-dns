@@ -1,4 +1,4 @@
-package providers
+package route53
 
 import (
 	"fmt"
@@ -9,73 +9,72 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/route53"
+	awsRoute53 "github.com/aws/aws-sdk-go/service/route53"
 	"github.com/juju/ratelimit"
-	"github.com/rancher/external-dns/dns"
+	"github.com/rancher/external-dns/providers"
+	"github.com/rancher/external-dns/utils"
 )
 
 var route53MaxRetries int = 4
 
-type Route53Handler struct {
-	client       *route53.Route53
+type Route53Provider struct {
+	client       *awsRoute53.Route53
 	hostedZoneId string
 	limiter      *ratelimit.Bucket
 }
 
 func init() {
+	providers.RegisterProvider("route53", &Route53Provider{})
+}
+
+func (r *Route53Provider) Init(rootDomainName string) error {
 	var region, accessKey, secretKey string
 	if region = os.Getenv("AWS_REGION"); len(region) == 0 {
-		logrus.Info("AWS_REGION is not set, skipping init of Route 53 provider")
-		return
+		return fmt.Errorf("AWS_REGION is not set")
 	}
 
 	if accessKey = os.Getenv("AWS_ACCESS_KEY"); len(accessKey) == 0 {
-		logrus.Info("AWS_ACCESS_KEY is not set, skipping init of Route 53 provider")
-		return
+		return fmt.Errorf("AWS_ACCESS_KEY is not set")
 	}
 
 	if secretKey = os.Getenv("AWS_SECRET_KEY"); len(secretKey) == 0 {
-		logrus.Info("AWS_SECRET_KEY is not set, skipping init of Route 53 provider")
-		return
-	}
-
-	handler := &Route53Handler{}
-	if err := RegisterProvider("route53", handler); err != nil {
-		logrus.Fatal("Could not register route53 provider")
+		return fmt.Errorf("AWS_SECRET_KEY is not set")
 	}
 
 	// Comply with the API's 5 req/s rate limit. If there are other
-	// clients using the same account the AWS SDK will throttle our
-	// requests once the API returns a "Rate exceeded" error.
-	handler.limiter = ratelimit.NewBucketWithRate(5.0, 1)
+	// clients using the same account the AWS SDK will throttle the
+	// requests automatically if the global rate limit is exhausted.
+	r.limiter = ratelimit.NewBucketWithRate(5.0, 1)
 
 	creds := credentials.NewStaticCredentials(accessKey, secretKey, "")
 	config := aws.NewConfig().WithMaxRetries(route53MaxRetries).
 		WithCredentials(creds).
 		WithRegion(region)
 
-	handler.client = route53.New(session.New(config))
+	r.client = awsRoute53.New(session.New(config))
 
-	if err := handler.setHostedZone(); err != nil {
-		logrus.Fatal(err)
+	if err := r.setHostedZone(rootDomainName); err != nil {
+		return err
 	}
 
 	logrus.Infof("Configured %s with hosted zone '%s' in region '%s' ",
-		handler.GetName(), dns.RootDomainName, region)
+		r.GetName(), rootDomainName, region)
+
+	return nil
 }
 
-func (r *Route53Handler) setHostedZone() error {
+func (r *Route53Provider) setHostedZone(rootDomainName string) error {
 	if envVal := os.Getenv("ROUTE53_ZONE_ID"); envVal != "" {
 		r.hostedZoneId = strings.TrimSpace(envVal)
-		if err := r.validateHostedZoneId(); err != nil {
+		if err := r.validateHostedZoneId(rootDomainName); err != nil {
 			return err
 		}
 		return nil
 	}
-	
+
 	r.limiter.Wait(1)
-	params := &route53.ListHostedZonesByNameInput{
-		DNSName:  aws.String(strings.TrimSuffix(dns.RootDomainName, ".")),
+	params := &awsRoute53.ListHostedZonesByNameInput{
+		DNSName:  aws.String(utils.UnFqdn(rootDomainName)),
 		MaxItems: aws.String("1"),
 	}
 	resp, err := r.client.ListHostedZonesByName(params)
@@ -83,8 +82,8 @@ func (r *Route53Handler) setHostedZone() error {
 		return fmt.Errorf("Could not list hosted zones: %v", err)
 	}
 
-	if len(resp.HostedZones) == 0 || *resp.HostedZones[0].Name != dns.RootDomainName {
-		return fmt.Errorf("Hosted zone '%s' not found", dns.RootDomainName)
+	if len(resp.HostedZones) == 0 || *resp.HostedZones[0].Name != rootDomainName {
+		return fmt.Errorf("Hosted zone for '%s' not found", rootDomainName)
 	}
 
 	zoneId := *resp.HostedZones[0].Id
@@ -96,9 +95,9 @@ func (r *Route53Handler) setHostedZone() error {
 	return nil
 }
 
-func (r *Route53Handler) validateHostedZoneId() error {
+func (r *Route53Provider) validateHostedZoneId(rootDomainName string) error {
 	r.limiter.Wait(1)
-	params := &route53.GetHostedZoneInput{
+	params := &awsRoute53.GetHostedZoneInput{
 		Id: aws.String(r.hostedZoneId),
 	}
 	resp, err := r.client.GetHostedZone(params)
@@ -107,47 +106,53 @@ func (r *Route53Handler) validateHostedZoneId() error {
 			r.hostedZoneId, err)
 	}
 
-	if *resp.HostedZone.Name != dns.RootDomainName {
+	if *resp.HostedZone.Name != rootDomainName {
 		return fmt.Errorf("Hosted zone ID '%s' does not match name '%s'",
-			r.hostedZoneId, dns.RootDomainName)
+			r.hostedZoneId, rootDomainName)
 	}
 
 	return nil
 }
 
-func (*Route53Handler) GetName() string {
+func (*Route53Provider) GetName() string {
 	return "Route 53"
 }
 
-func (r *Route53Handler) AddRecord(record dns.DnsRecord) error {
+func (r *Route53Provider) HealthCheck() error {
+	var params *awsRoute53.GetHostedZoneCountInput
+	_, err := r.client.GetHostedZoneCount(params)
+	return err
+}
+
+func (r *Route53Provider) AddRecord(record utils.DnsRecord) error {
 	return r.changeRecord(record, "UPSERT")
 }
 
-func (r *Route53Handler) UpdateRecord(record dns.DnsRecord) error {
+func (r *Route53Provider) UpdateRecord(record utils.DnsRecord) error {
 	return r.changeRecord(record, "UPSERT")
 }
 
-func (r *Route53Handler) RemoveRecord(record dns.DnsRecord) error {
+func (r *Route53Provider) RemoveRecord(record utils.DnsRecord) error {
 	return r.changeRecord(record, "DELETE")
 }
 
-func (r *Route53Handler) changeRecord(record dns.DnsRecord, action string) error {
+func (r *Route53Provider) changeRecord(record utils.DnsRecord, action string) error {
 	r.limiter.Wait(1)
-	records := make([]*route53.ResourceRecord, len(record.Records))
+	records := make([]*awsRoute53.ResourceRecord, len(record.Records))
 	for idx, value := range record.Records {
-		records[idx] = &route53.ResourceRecord{
+		records[idx] = &awsRoute53.ResourceRecord{
 			Value: aws.String(value),
 		}
 	}
 
-	params := &route53.ChangeResourceRecordSetsInput{
+	params := &awsRoute53.ChangeResourceRecordSetsInput{
 		HostedZoneId: aws.String(r.hostedZoneId),
-		ChangeBatch: &route53.ChangeBatch{
+		ChangeBatch: &awsRoute53.ChangeBatch{
 			Comment: aws.String("Managed by Rancher"),
-			Changes: []*route53.Change{
+			Changes: []*awsRoute53.Change{
 				{
 					Action: aws.String(action),
-					ResourceRecordSet: &route53.ResourceRecordSet{
+					ResourceRecordSet: &awsRoute53.ResourceRecordSet{
 						Name:            aws.String(record.Fqdn),
 						Type:            aws.String(record.Type),
 						TTL:             aws.Int64(int64(record.TTL)),
@@ -162,17 +167,17 @@ func (r *Route53Handler) changeRecord(record dns.DnsRecord, action string) error
 	return err
 }
 
-func (r *Route53Handler) GetRecords() ([]dns.DnsRecord, error) {
+func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 	r.limiter.Wait(1)
-	dnsRecords := []dns.DnsRecord{}
-	rrSets := []*route53.ResourceRecordSet{}
-	params := &route53.ListResourceRecordSetsInput{
+	dnsRecords := []utils.DnsRecord{}
+	rrSets := []*awsRoute53.ResourceRecordSet{}
+	params := &awsRoute53.ListResourceRecordSetsInput{
 		HostedZoneId: aws.String(r.hostedZoneId),
 		MaxItems:     aws.String("100"),
 	}
 
 	err := r.client.ListResourceRecordSetsPages(params,
-		func(page *route53.ListResourceRecordSetsOutput, lastPage bool) bool {
+		func(page *awsRoute53.ListResourceRecordSetsOutput, lastPage bool) bool {
 			rrSets = append(rrSets, page.ResourceRecordSets...)
 			return !lastPage
 		})
@@ -183,18 +188,19 @@ func (r *Route53Handler) GetRecords() ([]dns.DnsRecord, error) {
 	for _, rrSet := range rrSets {
 		// skip proprietary Route 53 alias resource record sets
 		if rrSet.AliasTarget != nil {
+			logrus.Debug("Skipped Route53 alias RRset")
 			continue
 		}
 		records := []string{}
 		for _, rr := range rrSet.ResourceRecords {
 			records = append(records, *rr.Value)
 		}
-		
-		dnsRecord := dns.DnsRecord{
-			Fqdn: *rrSet.Name,
+
+		dnsRecord := utils.DnsRecord{
+			Fqdn:    *rrSet.Name,
 			Records: records,
-			Type: *rrSet.Type,
-			TTL: int(*rrSet.TTL),
+			Type:    *rrSet.Type,
+			TTL:     int(*rrSet.TTL),
 		}
 		dnsRecords = append(dnsRecords, dnsRecord)
 	}

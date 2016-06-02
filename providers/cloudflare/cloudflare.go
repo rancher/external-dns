@@ -1,61 +1,63 @@
-package providers
+package cloudflare
 
 import (
 	"fmt"
 	"os"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/crackcomm/cloudflare"
-	"github.com/rancher/external-dns/dns"
+	api "github.com/crackcomm/cloudflare"
+	"github.com/rancher/external-dns/providers"
+	"github.com/rancher/external-dns/utils"
 	"golang.org/x/net/context"
 )
 
-type CloudflareHandler struct {
-	client *cloudflare.Client
-	zone   *cloudflare.Zone
+type CloudflareProvider struct {
+	client *api.Client
+	zone   *api.Zone
 	ctx    context.Context
 	root   string
 }
 
 func init() {
-	cloudflareHandler := &CloudflareHandler{}
+	providers.RegisterProvider("cloudflare", &CloudflareProvider{})
+}
 
-	email := os.Getenv("CLOUDFLARE_EMAIL")
-	if len(email) == 0 {
-		logrus.Infof("CLOUDFLARE_EMAIL is not set, skipping init of %s provider", cloudflareHandler.GetName())
-		return
+func (c *CloudflareProvider) Init(rootDomainName string) error {
+	var email, apiKey string
+	if email = os.Getenv("CLOUDFLARE_EMAIL"); len(email) == 0 {
+		return fmt.Errorf("CLOUDFLARE_EMAIL is not set")
 	}
 
-	apiKey := os.Getenv("CLOUDFLARE_KEY")
-	if len(apiKey) == 0 {
-		logrus.Infof("CLOUDFLARE_KEY is not set, skipping init of %s provider", cloudflareHandler.GetName())
-		return
+	if apiKey = os.Getenv("CLOUDFLARE_KEY"); len(apiKey) == 0 {
+		return fmt.Errorf("CLOUDFLARE_KEY is not set")
 	}
 
-	if err := RegisterProvider("cloudflare", cloudflareHandler); err != nil {
-		logrus.Fatal("Could not register cloudflare provider")
-	}
-
-	cloudflareHandler.client = cloudflare.New(&cloudflare.Options{
+	c.client = api.New(&api.Options{
 		Email: email,
 		Key:   apiKey,
 	})
 
-	cloudflareHandler.ctx = context.Background()
-	cloudflareHandler.root = unFqdn(dns.RootDomainName)
+	c.ctx = context.Background()
+	c.root = utils.UnFqdn(rootDomainName)
 
-	if err := cloudflareHandler.setZone(); err != nil {
-		logrus.Fatalf("Failed to set zone for root domain %s: %v", cloudflareHandler.root, err)
+	if err := c.setZone(); err != nil {
+		return fmt.Errorf("Failed to set zone for root domain %s: %v", c.root, err)
 	}
 
-	logrus.Infof("Configured %s with zone \"%s\" ", cloudflareHandler.GetName(), cloudflareHandler.root)
+	logrus.Infof("Configured %s with zone '%s'", c.GetName(), c.root)
+	return nil
 }
 
-func (*CloudflareHandler) GetName() string {
+func (*CloudflareProvider) GetName() string {
 	return "CloudFlare"
 }
 
-func (c *CloudflareHandler) AddRecord(record dns.DnsRecord) error {
+func (c *CloudflareProvider) HealthCheck() error {
+	_, err := c.client.Zones.Details(c.ctx, c.zone.ID)
+	return err
+}
+
+func (c *CloudflareProvider) AddRecord(record utils.DnsRecord) error {
 	for _, rec := range record.Records {
 		r := c.prepareRecord(record)
 		r.Content = rec
@@ -68,7 +70,7 @@ func (c *CloudflareHandler) AddRecord(record dns.DnsRecord) error {
 	return nil
 }
 
-func (c *CloudflareHandler) UpdateRecord(record dns.DnsRecord) error {
+func (c *CloudflareProvider) UpdateRecord(record utils.DnsRecord) error {
 	if err := c.RemoveRecord(record); err != nil {
 		return err
 	}
@@ -76,7 +78,7 @@ func (c *CloudflareHandler) UpdateRecord(record dns.DnsRecord) error {
 	return c.AddRecord(record)
 }
 
-func (c *CloudflareHandler) RemoveRecord(record dns.DnsRecord) error {
+func (c *CloudflareProvider) RemoveRecord(record utils.DnsRecord) error {
 	records, err := c.findRecords(record)
 	if err != nil {
 		return err
@@ -92,8 +94,8 @@ func (c *CloudflareHandler) RemoveRecord(record dns.DnsRecord) error {
 	return nil
 }
 
-func (c *CloudflareHandler) GetRecords() ([]dns.DnsRecord, error) {
-	var records []dns.DnsRecord
+func (c *CloudflareProvider) GetRecords() ([]utils.DnsRecord, error) {
+	var records []utils.DnsRecord
 	result, err := c.client.Records.List(c.ctx, c.zone.ID)
 	if err != nil {
 		return records, fmt.Errorf("CloudFlare API call has failed: %v", err)
@@ -103,7 +105,7 @@ func (c *CloudflareHandler) GetRecords() ([]dns.DnsRecord, error) {
 	recordTTLs := map[string]map[string]int{}
 
 	for _, rec := range result {
-		fqdn := fqdn(rec.Name)
+		fqdn := utils.Fqdn(rec.Name)
 		recordTTLs[fqdn] = map[string]int{}
 		recordTTLs[fqdn][rec.Type] = rec.TTL
 		recordSet, exists := recordMap[fqdn]
@@ -124,14 +126,15 @@ func (c *CloudflareHandler) GetRecords() ([]dns.DnsRecord, error) {
 	for fqdn, recordSet := range recordMap {
 		for recordType, recordSlice := range recordSet {
 			ttl := recordTTLs[fqdn][recordType]
-			record := dns.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: ttl}
+			record := utils.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: ttl}
 			records = append(records, record)
 		}
 	}
+
 	return records, nil
 }
 
-func (c *CloudflareHandler) setZone() error {
+func (c *CloudflareProvider) setZone() error {
 	zones, err := c.client.Zones.List(c.ctx)
 	if err != nil {
 		return fmt.Errorf("CloudFlare API call has failed: %v", err)
@@ -150,9 +153,9 @@ func (c *CloudflareHandler) setZone() error {
 	return nil
 }
 
-func (c *CloudflareHandler) prepareRecord(record dns.DnsRecord) *cloudflare.Record {
-	name := unFqdn(record.Fqdn)
-	return &cloudflare.Record{
+func (c *CloudflareProvider) prepareRecord(record utils.DnsRecord) *api.Record {
+	name := utils.UnFqdn(record.Fqdn)
+	return &api.Record{
 		Type:   record.Type,
 		Name:   name,
 		TTL:    sanitizeTTL(record.TTL),
@@ -160,14 +163,14 @@ func (c *CloudflareHandler) prepareRecord(record dns.DnsRecord) *cloudflare.Reco
 	}
 }
 
-func (c *CloudflareHandler) findRecords(record dns.DnsRecord) ([]*cloudflare.Record, error) {
-	var records []*cloudflare.Record
+func (c *CloudflareProvider) findRecords(record utils.DnsRecord) ([]*api.Record, error) {
+	var records []*api.Record
 	result, err := c.client.Records.List(c.ctx, c.zone.ID)
 	if err != nil {
 		return records, fmt.Errorf("CloudFlare API call has failed: %v", err)
 	}
 
-	name := unFqdn(record.Fqdn)
+	name := utils.UnFqdn(record.Fqdn)
 	for _, rec := range result {
 		if rec.Name == name && rec.Type == record.Type {
 			records = append(records, rec)
@@ -185,20 +188,4 @@ func sanitizeTTL(ttl int) int {
 		ttl = 86400
 	}
 	return ttl
-}
-
-func fqdn(name string) string {
-	n := len(name)
-	if n == 0 || name[n-1] == '.' {
-		return name
-	}
-	return name + "."
-}
-
-func unFqdn(name string) string {
-	n := len(name)
-	if n != 0 && name[n-1] == '.' {
-		return name[:n-1]
-	}
-	return name
 }

@@ -1,64 +1,61 @@
-package providers
+package powerdns
 
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/jgreat/powerdns"
-	"github.com/rancher/external-dns/dns"
+	"github.com/rancher/external-dns/providers"
+	"github.com/rancher/external-dns/utils"
 )
 
-func init() {
-	pdnsAPIKey := os.Getenv("POWERDNS_API_KEY")
-	if len(pdnsAPIKey) == 0 {
-		logrus.Info("POWERDNS_API_KEY is not set, skipping init of PowerDNS provider")
-		return
-	}
-
-	pdnsURL := os.Getenv("POWERDNS_URL")
-	if len(pdnsURL) == 0 {
-		logrus.Info("POWERDNS_URL is not set, skipping init of PowerDNS provider")
-		return
-	}
-
-	pdnsHandler := &PdnsHandler{}
-	if err := RegisterProvider("powerdns", pdnsHandler); err != nil {
-		logrus.Fatal("Could not register powerdns provider")
-	}
-
-	pdnsHandler.root = strings.TrimSuffix(dns.RootDomainName, ".")
-	pdnsHandler.client = powerdns.New(pdnsURL, "", pdnsHandler.root, pdnsAPIKey)
-
-	_, err := pdnsHandler.client.GetRecords()
-	if err != nil {
-		logrus.Fatalf("Failed to list records for %s : %v", pdnsHandler.root, err)
-	}
-
-	logrus.Infof("Configured %s with hosted zone %q ", pdnsHandler.GetName(), pdnsHandler.root)
-}
-
-// PdnsHandler ...
-type PdnsHandler struct {
+type PdnsProvider struct {
 	client *powerdns.PowerDNS
 	root   string
 }
 
-// GetName ...
-func (*PdnsHandler) GetName() string {
+func init() {
+	providers.RegisterProvider("powerdns", &PdnsProvider{})
+}
+
+func (d *PdnsProvider) Init(rootDomainName string) error {
+	var url, apiKey string
+	if url = os.Getenv("POWERDNS_URL"); len(url) == 0 {
+		return fmt.Errorf("POWERDNS_URL is not set")
+	}
+
+	if apiKey = os.Getenv("POWERDNS_API_KEY"); len(apiKey) == 0 {
+		return fmt.Errorf("POWERDNS_API_KEY is not set")
+	}
+
+	d.root = utils.UnFqdn(rootDomainName)
+	d.client = powerdns.New(url, "", d.root, apiKey)
+
+	_, err := d.client.GetRecords()
+	if err != nil {
+		return fmt.Errorf("Failed to list records for '%s': %v", d.root, err)
+	}
+
+	logrus.Infof("Configured %s with zone '%s'", d.GetName(), d.root)
+	return nil
+}
+
+func (*PdnsProvider) GetName() string {
 	return "PowerDNS"
 }
 
-// dns.DnsRecord.Fqdn has a trailing. | powerdns.Record.Name doesn't
-func (d *PdnsHandler) parseName(record dns.DnsRecord) string {
-	name := strings.TrimSuffix(record.Fqdn, ".")
-
-	return name
+func (d *PdnsProvider) HealthCheck() error {
+	_, err := d.client.GetRecords()
+	return err
 }
 
-// AddRecord ...
-func (d *PdnsHandler) AddRecord(record dns.DnsRecord) error {
+// utils.DnsRecord.Fqdn has a trailing. | powerdns.Record.Name doesn't
+func (d *PdnsProvider) parseName(record utils.DnsRecord) string {
+	return utils.UnFqdn(record.Fqdn)
+}
+
+func (d *PdnsProvider) AddRecord(record utils.DnsRecord) error {
 	logrus.Debugf("Called AddRecord with: %v\n", record)
 	name := d.parseName(record)
 	_, err := d.client.AddRecord(name, record.Type, record.TTL, record.Records)
@@ -69,7 +66,7 @@ func (d *PdnsHandler) AddRecord(record dns.DnsRecord) error {
 	return nil
 }
 
-func (d *PdnsHandler) findRecords(record dns.DnsRecord) ([]powerdns.Record, error) {
+func (d *PdnsProvider) findRecords(record utils.DnsRecord) ([]powerdns.Record, error) {
 	var records []powerdns.Record
 	resp, err := d.client.GetRecords()
 	if err != nil {
@@ -77,7 +74,7 @@ func (d *PdnsHandler) findRecords(record dns.DnsRecord) ([]powerdns.Record, erro
 	}
 
 	name := d.parseName(record)
-	// dns.DnsRecord.Fqdn has a trailing. | powerdns.Record.Name doesn't
+	// utils.DnsRecord.Fqdn has a trailing. | powerdns.Record.Name doesn't
 	logrus.Debugf("Parsed Name is %s\n", name)
 	for _, rec := range resp {
 		if rec.Name == name && rec.Type == record.Type {
@@ -88,8 +85,7 @@ func (d *PdnsHandler) findRecords(record dns.DnsRecord) ([]powerdns.Record, erro
 	return records, nil
 }
 
-// UpdateRecord ...
-func (d *PdnsHandler) UpdateRecord(record dns.DnsRecord) error {
+func (d *PdnsProvider) UpdateRecord(record utils.DnsRecord) error {
 	logrus.Debugf("Called UpdateRecord with: %v\n", record)
 
 	err := d.RemoveRecord(record)
@@ -101,7 +97,7 @@ func (d *PdnsHandler) UpdateRecord(record dns.DnsRecord) error {
 }
 
 // RemoveRecord ... Might be able to do this with out the for loop
-func (d *PdnsHandler) RemoveRecord(record dns.DnsRecord) error {
+func (d *PdnsProvider) RemoveRecord(record utils.DnsRecord) error {
 	logrus.Debugf("Called RemoveRecord with: %v\n", record)
 
 	records, err := d.findRecords(record)
@@ -120,10 +116,9 @@ func (d *PdnsHandler) RemoveRecord(record dns.DnsRecord) error {
 	return nil
 }
 
-// GetRecords ...
-func (d *PdnsHandler) GetRecords() ([]dns.DnsRecord, error) {
-	logrus.Debugln("Called GetRecords")
-	var records []dns.DnsRecord
+func (d *PdnsProvider) GetRecords() ([]utils.DnsRecord, error) {
+	logrus.Debug("Called GetRecords")
+	var records []utils.DnsRecord
 
 	pdnsRecords, err := d.client.GetRecords()
 	if err != nil {
@@ -143,7 +138,7 @@ func (d *PdnsHandler) GetRecords() ([]dns.DnsRecord, error) {
 			if re.Fqdn == name {
 				found = true
 				cont := append(re.Records, rec.Content)
-				records[i] = dns.DnsRecord{
+				records[i] = utils.DnsRecord{
 					Fqdn:    name,
 					Records: cont,
 					Type:    rec.Type,
@@ -152,7 +147,7 @@ func (d *PdnsHandler) GetRecords() ([]dns.DnsRecord, error) {
 			}
 		}
 		if !found {
-			r := dns.DnsRecord{
+			r := utils.DnsRecord{
 				Fqdn:    name,
 				Records: []string{rec.Content},
 				Type:    rec.Type,

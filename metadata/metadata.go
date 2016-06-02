@@ -3,7 +3,8 @@ package metadata
 import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/dns"
+	"github.com/rancher/external-dns/config"
+	"github.com/rancher/external-dns/utils"
 	"github.com/rancher/go-rancher-metadata/metadata"
 	"time"
 )
@@ -54,8 +55,8 @@ func (m *MetadataClient) GetVersion() (string, error) {
 	return m.MetadataClient.GetVersion()
 }
 
-func (m *MetadataClient) GetMetadataDnsRecords() (map[string]dns.DnsRecord, error) {
-	dnsEntries := make(map[string]dns.DnsRecord)
+func (m *MetadataClient) GetMetadataDnsRecords() (map[string]utils.DnsRecord, error) {
+	dnsEntries := make(map[string]utils.DnsRecord)
 	err := m.getContainersDnsRecords(dnsEntries, "", "")
 	if err != nil {
 		return dnsEntries, err
@@ -63,7 +64,7 @@ func (m *MetadataClient) GetMetadataDnsRecords() (map[string]dns.DnsRecord, erro
 	return dnsEntries, nil
 }
 
-func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]dns.DnsRecord, serviceName string, stackName string) error {
+func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.DnsRecord, serviceName string, stackName string) error {
 	containers, err := m.MetadataClient.GetContainers()
 	if err != nil {
 		return err
@@ -104,9 +105,9 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]dns.DnsRe
 			ip = host.AgentIP
 		}
 
-		fqdn := dns.ConvertToFqdn(container.ServiceName, container.StackName, m.EnvironmentName)
+		fqdn := utils.ConvertToFqdn(container.ServiceName, container.StackName, m.EnvironmentName, config.RootDomainName)
 		records := []string{ip}
-		dnsEntry := dns.DnsRecord{fqdn, records, "A", dns.TTL}
+		dnsEntry := utils.DnsRecord{fqdn, records, "A", config.TTL}
 
 		addToDnsEntries(dnsEntry, dnsEntries)
 	}
@@ -114,7 +115,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]dns.DnsRe
 	return nil
 }
 
-func addToDnsEntries(dnsEntry dns.DnsRecord, dnsEntries map[string]dns.DnsRecord) {
+func addToDnsEntries(dnsEntry utils.DnsRecord, dnsEntries map[string]utils.DnsRecord) {
 	var records []string
 	if _, ok := dnsEntries[dnsEntry.Fqdn]; !ok {
 		records = dnsEntry.Records
@@ -122,6 +123,6 @@ func addToDnsEntries(dnsEntry dns.DnsRecord, dnsEntries map[string]dns.DnsRecord
 		records = dnsEntries[dnsEntry.Fqdn].Records
 		records = append(records, dnsEntry.Records...)
 	}
-	dnsEntry = dns.DnsRecord{dnsEntry.Fqdn, records, "A", dns.TTL}
+	dnsEntry = utils.DnsRecord{dnsEntry.Fqdn, records, "A", config.TTL}
 	dnsEntries[dnsEntry.Fqdn] = dnsEntry
 }

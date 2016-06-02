@@ -3,12 +3,13 @@ package main
 import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/dns"
+	"github.com/rancher/external-dns/config"
+	"github.com/rancher/external-dns/utils"
 	"strings"
 )
 
-func UpdateProviderDnsRecords(metadataRecs map[string]dns.DnsRecord) ([]dns.DnsRecord, error) {
-	var updated []dns.DnsRecord
+func UpdateProviderDnsRecords(metadataRecs map[string]utils.DnsRecord) ([]utils.DnsRecord, error) {
+	var updated []utils.DnsRecord
 	providerRecs, err := getProviderDnsRecords()
 	if err != nil {
 		return nil, fmt.Errorf("Provider error reading dns entries: %v", err)
@@ -24,8 +25,8 @@ func UpdateProviderDnsRecords(metadataRecs map[string]dns.DnsRecord) ([]dns.DnsR
 	return updated, nil
 }
 
-func addMissingRecords(metadataRecs map[string]dns.DnsRecord, providerRecs map[string]dns.DnsRecord) []dns.DnsRecord {
-	var toAdd []dns.DnsRecord
+func addMissingRecords(metadataRecs map[string]utils.DnsRecord, providerRecs map[string]utils.DnsRecord) []utils.DnsRecord {
+	var toAdd []utils.DnsRecord
 	for key := range metadataRecs {
 		if _, ok := providerRecs[key]; !ok {
 			toAdd = append(toAdd, metadataRecs[key])
@@ -39,8 +40,8 @@ func addMissingRecords(metadataRecs map[string]dns.DnsRecord, providerRecs map[s
 	return updateRecords(toAdd, &Add)
 }
 
-func updateRecords(toChange []dns.DnsRecord, op *Op) []dns.DnsRecord {
-	var changed []dns.DnsRecord
+func updateRecords(toChange []utils.DnsRecord, op *Op) []utils.DnsRecord {
+	var changed []utils.DnsRecord
 	for _, value := range toChange {
 		switch *op {
 		case Add:
@@ -67,8 +68,8 @@ func updateRecords(toChange []dns.DnsRecord, op *Op) []dns.DnsRecord {
 	return changed
 }
 
-func updateExistingRecords(metadataRecs map[string]dns.DnsRecord, providerRecs map[string]dns.DnsRecord) []dns.DnsRecord {
-	var toUpdate []dns.DnsRecord
+func updateExistingRecords(metadataRecs map[string]utils.DnsRecord, providerRecs map[string]utils.DnsRecord) []utils.DnsRecord {
+	var toUpdate []utils.DnsRecord
 	for key := range metadataRecs {
 		if _, ok := providerRecs[key]; ok {
 			metadataR := make(map[string]struct{}, len(metadataRecs[key].Records))
@@ -110,8 +111,8 @@ func updateExistingRecords(metadataRecs map[string]dns.DnsRecord, providerRecs m
 	return updateRecords(toUpdate, &Update)
 }
 
-func removeExtraRecords(metadataRecs map[string]dns.DnsRecord, providerRecs map[string]dns.DnsRecord) []dns.DnsRecord {
-	var toRemove []dns.DnsRecord
+func removeExtraRecords(metadataRecs map[string]utils.DnsRecord, providerRecs map[string]utils.DnsRecord) []utils.DnsRecord {
+	var toRemove []utils.DnsRecord
 	for key := range providerRecs {
 		if _, ok := metadataRecs[key]; !ok {
 			toRemove = append(toRemove, providerRecs[key])
@@ -126,16 +127,16 @@ func removeExtraRecords(metadataRecs map[string]dns.DnsRecord, providerRecs map[
 	return updateRecords(toRemove, &Remove)
 }
 
-func getProviderDnsRecords() (map[string]dns.DnsRecord, error) {
+func getProviderDnsRecords() (map[string]utils.DnsRecord, error) {
 	allRecords, err := provider.GetRecords()
 	if err != nil {
 		return nil, err
 	}
-	ourRecords := make(map[string]dns.DnsRecord, len(allRecords))
-	joins := []string{m.EnvironmentName, dns.RootDomainName}
+	ourRecords := make(map[string]utils.DnsRecord, len(allRecords))
+	joins := []string{m.EnvironmentName, config.RootDomainName}
 	suffix := "." + strings.ToLower(strings.Join(joins, "."))
 	for _, value := range allRecords {
-		if value.Type == "A" && strings.HasSuffix(value.Fqdn, suffix) && value.TTL == dns.TTL {
+		if value.Type == "A" && strings.HasSuffix(value.Fqdn, suffix) && value.TTL == config.TTL {
 			ourRecords[value.Fqdn] = value
 		}
 	}

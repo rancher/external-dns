@@ -1,73 +1,76 @@
-package providers
+package pointhq
 
 import (
 	"fmt"
-	"github.com/Sirupsen/logrus"
-	"github.com/cognetoapps/go-pointdns"
-	"github.com/rancher/external-dns/dns"
 	"os"
 	"strings"
+
+	"github.com/Sirupsen/logrus"
+	"github.com/cognetoapps/go-pointdns"
+	"github.com/rancher/external-dns/providers"
+	"github.com/rancher/external-dns/utils"
 )
 
-func init() {
-	apiToken := os.Getenv("POINTHQ_TOKEN")
-	if len(apiToken) == 0 {
-		logrus.Info("POINTHQ_TOKEN is not set, skipping init of PointHQ provider")
-		return
-	}
-
-	email := os.Getenv("POINTHQ_EMAIL")
-	if len(email) == 0 {
-		logrus.Info("POINTHQ_EMAIL is not set, skipping init of PointHQ provider")
-		return
-	}
-
-	pointhqHandler := &PointHQHandler{}
-	if err := RegisterProvider("pointhq", pointhqHandler); err != nil {
-		logrus.Fatal("Could not register pointhqHandler provider")
-	}
-
-	pointhqHandler.root = strings.TrimSuffix(dns.RootDomainName, ".")
-	pointhqHandler.client = pointdns.NewClient(email, apiToken)
-
-	zones, err := pointhqHandler.client.Zones()
-	if err != nil {
-		logrus.Fatalf("Failed to list hosted zones: %v", err)
-	}
-
-	found := false
-	for _, zone := range zones {
-		if zone.Name == pointhqHandler.root {
-			found = true
-			pointhqHandler.zone = zone
-			break
-		}
-	}
-
-	if !found {
-		logrus.Fatalf("Hosted zone %s is missing", pointhqHandler.root)
-	}
-
-	logrus.Infof("Configured %s with hosted zone %q ", pointhqHandler.GetName(), pointhqHandler.root)
-}
-
-type PointHQHandler struct {
+type PointHQProvider struct {
 	client *pointdns.PointClient
 	root   string
 	zone   pointdns.Zone
 }
 
-func (*PointHQHandler) GetName() string {
+func init() {
+	providers.RegisterProvider("pointhq", &PointHQProvider{})
+}
+
+func (d *PointHQProvider) Init(rootDomainName string) error {
+	var email, apiToken string
+	if email = os.Getenv("POINTHQ_EMAIL"); len(email) == 0 {
+		return fmt.Errorf("POINTHQ_EMAIL is not set")
+	}
+
+	if apiToken = os.Getenv("POINTHQ_TOKEN"); len(apiToken) == 0 {
+		return fmt.Errorf("POINTHQ_TOKEN is not set")
+	}
+
+	d.root = utils.UnFqdn(rootDomainName)
+	d.client = pointdns.NewClient(email, apiToken)
+
+	zones, err := d.client.Zones()
+	if err != nil {
+		return fmt.Errorf("Failed to list hosted zones: %v", err)
+	}
+
+	found := false
+	for _, zone := range zones {
+		if zone.Name == d.root {
+			found = true
+			d.zone = zone
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("Zone for '%s' not found", d.root)
+	}
+
+	logrus.Infof("Configured %s with zone '%s'", d.GetName(), d.root)
+	return nil
+}
+
+func (*PointHQProvider) GetName() string {
 	return "PointHQ"
 }
 
-func (d *PointHQHandler) parseName(record dns.DnsRecord) string {
-	name := strings.TrimSuffix(record.Fqdn, fmt.Sprintf(".%s.", d.root))
+func (d *PointHQProvider) HealthCheck() error {
+	_, err := d.client.Zones()
+	return err
+}
 
+func (d *PointHQProvider) parseName(record utils.DnsRecord) string {
+	name := strings.TrimSuffix(record.Fqdn, fmt.Sprintf(".%s.", d.root))
 	return name
 }
 
-func (d *PointHQHandler) AddRecord(record dns.DnsRecord) error {
+func (d *PointHQProvider) AddRecord(record utils.DnsRecord) error {
 	name := d.parseName(record)
 	for _, rec := range record.Records {
 		recordInput := pointdns.Record{
@@ -86,7 +89,7 @@ func (d *PointHQHandler) AddRecord(record dns.DnsRecord) error {
 	return nil
 }
 
-func (d *PointHQHandler) FindRecords(record dns.DnsRecord) ([]pointdns.Record, error) {
+func (d *PointHQProvider) FindRecords(record utils.DnsRecord) ([]pointdns.Record, error) {
 	var records []pointdns.Record
 	resp, err := d.zone.Records()
 	if err != nil {
@@ -102,7 +105,7 @@ func (d *PointHQHandler) FindRecords(record dns.DnsRecord) ([]pointdns.Record, e
 	return records, nil
 }
 
-func (d *PointHQHandler) UpdateRecord(record dns.DnsRecord) error {
+func (d *PointHQProvider) UpdateRecord(record utils.DnsRecord) error {
 	err := d.RemoveRecord(record)
 	if err != nil {
 		return err
@@ -111,7 +114,7 @@ func (d *PointHQHandler) UpdateRecord(record dns.DnsRecord) error {
 	return d.AddRecord(record)
 }
 
-func (d *PointHQHandler) RemoveRecord(record dns.DnsRecord) error {
+func (d *PointHQProvider) RemoveRecord(record utils.DnsRecord) error {
 	records, err := d.FindRecords(record)
 	if err != nil {
 		return err
@@ -127,9 +130,8 @@ func (d *PointHQHandler) RemoveRecord(record dns.DnsRecord) error {
 	return nil
 }
 
-func (d *PointHQHandler) GetRecords() ([]dns.DnsRecord, error) {
-	var records []dns.DnsRecord
-
+func (d *PointHQProvider) GetRecords() ([]utils.DnsRecord, error) {
+	var records []utils.DnsRecord
 	recordResp, err := d.zone.Records()
 	if err != nil {
 		return records, fmt.Errorf("PointHQ API call has failed: %v", err)
@@ -141,7 +143,7 @@ func (d *PointHQHandler) GetRecords() ([]dns.DnsRecord, error) {
 	for _, rec := range recordResp {
 		var fqdn string
 		if rec.Name == "" {
-			fqdn = dns.RootDomainName
+			fqdn = d.root + "."
 		} else {
 			fqdn = rec.Name
 		}
@@ -167,9 +169,10 @@ func (d *PointHQHandler) GetRecords() ([]dns.DnsRecord, error) {
 	for fqdn, recordSet := range recordMap {
 		for recordType, recordSlice := range recordSet {
 			ttl := recordTTLs[fqdn][recordType]
-			record := dns.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: ttl}
+			record := utils.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: ttl}
 			records = append(records, record)
 		}
 	}
+
 	return records, nil
 }
