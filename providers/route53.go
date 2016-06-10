@@ -14,7 +14,7 @@ import (
 	"github.com/rancher/external-dns/dns"
 )
 
-var route53MaxRetries int = 3
+var route53MaxRetries int = 4
 
 type Route53Handler struct {
 	client       *route53.Route53
