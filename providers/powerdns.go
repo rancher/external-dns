@@ -132,9 +132,6 @@ func (d *PdnsHandler) GetRecords() ([]dns.DnsRecord, error) {
 
 	for _, rec := range pdnsRecords {
 		logrus.Debugf("%v\n", rec)
-		if rec.Type != "A" {
-			continue
-		}
 		if rec.Disabled == true {
 			continue
 		}
