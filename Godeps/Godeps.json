@@ -1,7 +1,10 @@
 {
 	"ImportPath": "github.com/rancher/external-dns",
 	"GoVersion": "go1.5.1",
-	"GodepVersion": "v62",
+	"GodepVersion": "v74",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
 		{
 			"ImportPath": "github.com/Sirupsen/logrus",
@@ -128,9 +131,18 @@
 			"Rev": "a60ec0b4c5e4c44b522040a54293f7f93cf5b887"
 		},
 		{
+			"ImportPath": "github.com/dghubble/sling",
+			"Comment": "v1.0-14-g5765fe1",
+			"Rev": "5765fe1bdc176ae984b074c8a89980d1f16e6dd8"
+		},
+		{
 			"ImportPath": "github.com/go-ini/ini",
 			"Comment": "v1.11.0",
 			"Rev": "12f418cc7edc5a618a51407b7ac1f1f512139df3"
+		},
+		{
+			"ImportPath": "github.com/google/go-querystring/query",
+			"Rev": "9235644dd9e52eeae6fa48efd539fdc351a0af53"
 		},
 		{
 			"ImportPath": "github.com/gorilla/context",
@@ -143,6 +155,10 @@
 		{
 			"ImportPath": "github.com/gorilla/websocket",
 			"Rev": "5ed2f4547d7b9c036541b27a67ecf54e41756997"
+		},
+		{
+			"ImportPath": "github.com/jgreat/powerdns",
+			"Rev": "2682135eb5431af55792e331ce6d3cb43cda00a4"
 		},
 		{
 			"ImportPath": "github.com/jmespath/go-jmespath",
@@ -163,6 +179,18 @@
 		},
 		{
 			"ImportPath": "github.com/prasmussen/gandi-api/domain",
+			"Rev": "47911529ecd365be607afe09a4fe0799e16c3ed7"
+		},
+		{
+			"ImportPath": "github.com/prasmussen/gandi-api/domain/zone",
+			"Rev": "47911529ecd365be607afe09a4fe0799e16c3ed7"
+		},
+		{
+			"ImportPath": "github.com/prasmussen/gandi-api/domain/zone/record",
+			"Rev": "47911529ecd365be607afe09a4fe0799e16c3ed7"
+		},
+		{
+			"ImportPath": "github.com/prasmussen/gandi-api/domain/zone/version",
 			"Rev": "47911529ecd365be607afe09a4fe0799e16c3ed7"
 		},
 		{
