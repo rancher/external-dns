@@ -10,6 +10,7 @@ import (
 var (
 	RootDomainName string
 	TTL            int
+	fqdnSeparator  string
 )
 
 type DnsRecord struct {
@@ -30,6 +31,10 @@ func init() {
 	name = os.Getenv("ROOT_DOMAIN")
 	if len(name) == 0 {
 		logrus.Fatalf("ROOT_DOMAIN is not set")
+	}
+	fqdnSeparator = os.Getenv("FQDN_SEPARATOR")
+	if len(fqdnSeparator) == 0 {
+		fqdnSeparator = "."
 	}
 	TTLEnv := os.Getenv("TTL")
 	i, err := strconv.Atoi(TTLEnv)
@@ -53,6 +58,6 @@ func ConvertToServiceDnsRecord(dnsRecord DnsRecord) ServiceDnsRecord {
 }
 
 func ConvertToFqdn(serviceName string, stackName string, environmentName string) string {
-	domainNameEntries := []string{serviceName, stackName, environmentName, RootDomainName}
-	return strings.ToLower(strings.Join(domainNameEntries, "."))
+	domainNameEntries := []string{serviceName, stackName, environmentName}
+	return strings.ToLower(strings.Join(domainNameEntries, fqdnSeparator) + "." + RootDomainName)
 }
