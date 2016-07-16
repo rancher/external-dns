@@ -174,6 +174,10 @@
 			"Rev": "0826b98aaa29c0766956cb40d45cf7482a597671"
 		},
 		{
+			"ImportPath": "github.com/miekg/dns",
+			"Rev": "48ab6605c66ac797e07f615101c3e9e10e932b66"
+		},
+		{
 			"ImportPath": "github.com/prasmussen/gandi-api/client",
 			"Rev": "47911529ecd365be607afe09a4fe0799e16c3ed7"
 		},
