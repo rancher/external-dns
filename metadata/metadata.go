@@ -70,7 +70,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]dns.DnsRe
 	}
 
 	for _, container := range containers {
-		if len(container.ServiceName) == 0 {
+		if len(container.ServiceName) == 0 || len(container.Ports) == 0 || !containerStateOK(container) {
 			continue
 		}
 
@@ -81,10 +81,6 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]dns.DnsRe
 			if stackName != container.StackName {
 				continue
 			}
-		}
-
-		if len(container.Ports) == 0 {
-			continue
 		}
 
 		hostUUID := container.HostUUID
@@ -124,4 +120,23 @@ func addToDnsEntries(dnsEntry dns.DnsRecord, dnsEntries map[string]dns.DnsRecord
 	}
 	dnsEntry = dns.DnsRecord{dnsEntry.Fqdn, records, "A", dns.TTL}
 	dnsEntries[dnsEntry.Fqdn] = dnsEntry
+}
+
+func containerStateOK(container metadata.Container) bool {
+	switch container.State {
+	case "starting":
+	case "running":
+	default:
+		return false
+	}
+
+	switch container.HealthState {
+	case "healthy":
+	case "updating-healthy":
+	case "":
+	default:
+		return false
+	}
+
+	return true
 }
