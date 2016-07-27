@@ -54,6 +54,20 @@ func (m *Client) GetVersion() (string, error) {
 	return string(resp[:]), nil
 }
 
+func (m *Client) GetSelfHost() (Host, error) {
+	resp, err := m.SendRequest("/self/host")
+	var host Host
+	if err != nil {
+		return host, err
+	}
+
+	if err = json.Unmarshal(resp, &host); err != nil {
+		return host, err
+	}
+
+	return host, nil
+}
+
 func (m *Client) GetSelfContainer() (Container, error) {
 	resp, err := m.SendRequest("/self/container")
 	var container Container
@@ -66,6 +80,20 @@ func (m *Client) GetSelfContainer() (Container, error) {
 	}
 
 	return container, nil
+}
+
+func (m *Client) GetSelfServiceByName(name string) (Service, error) {
+	resp, err := m.SendRequest("/self/stack/services/" + name)
+	var service Service
+	if err != nil {
+		return service, err
+	}
+
+	if err = json.Unmarshal(resp, &service); err != nil {
+		return service, err
+	}
+
+	return service, nil
 }
 
 func (m *Client) GetSelfService() (Service, error) {
@@ -107,6 +135,19 @@ func (m *Client) GetServices() ([]Service, error) {
 		return services, err
 	}
 	return services, nil
+}
+
+func (m *Client) GetStacks() ([]Stack, error) {
+	resp, err := m.SendRequest("/stacks")
+	var stacks []Stack
+	if err != nil {
+		return stacks, err
+	}
+
+	if err = json.Unmarshal(resp, &stacks); err != nil {
+		return stacks, err
+	}
+	return stacks, nil
 }
 
 func (m *Client) GetContainers() ([]Container, error) {
