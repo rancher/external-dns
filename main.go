@@ -2,12 +2,21 @@ package main
 
 import (
 	"flag"
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/dns"
-	"github.com/rancher/external-dns/metadata"
-	"github.com/rancher/external-dns/providers"
 	"os"
 	"time"
+
+	"github.com/Sirupsen/logrus"
+	"github.com/rancher/external-dns/config"
+	"github.com/rancher/external-dns/metadata"
+	"github.com/rancher/external-dns/providers"
+	_ "github.com/rancher/external-dns/providers/cloudflare"
+	_ "github.com/rancher/external-dns/providers/dnsimple"
+	_ "github.com/rancher/external-dns/providers/gandi"
+	_ "github.com/rancher/external-dns/providers/pointhq"
+	_ "github.com/rancher/external-dns/providers/powerdns"
+	_ "github.com/rancher/external-dns/providers/rfc2136"
+	_ "github.com/rancher/external-dns/providers/route53"
+	"github.com/rancher/external-dns/utils"
 )
 
 const (
@@ -27,7 +36,7 @@ var (
 )
 
 var (
-	providerName = flag.String("provider", "", "External provider name")
+	providerName = flag.String("provider", "route53", "External provider name")
 	debug        = flag.Bool("debug", false, "Debug")
 	logFile      = flag.String("log", "", "Log file")
 
@@ -38,7 +47,6 @@ var (
 
 func setEnv() {
 	flag.Parse()
-	provider = providers.GetProvider(*providerName)
 	if *debug {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
@@ -54,39 +62,32 @@ func setEnv() {
 		}
 	}
 
+	// get config from environment variables
+	config.SetFromEnvironment()
+
+	var err error
 	// configure metadata client
-	mClient, err := metadata.NewMetadataClient()
+	m, err = metadata.NewMetadataClient()
 	if err != nil {
 		logrus.Fatalf("Failed to configure rancher-metadata client: %v", err)
 	}
-	m = mClient
-
-	cattleUrl := os.Getenv("CATTLE_URL")
-	if len(cattleUrl) == 0 {
-		logrus.Fatalf("CATTLE_URL is not set")
-	}
-
-	cattleApiKey := os.Getenv("CATTLE_ACCESS_KEY")
-	if len(cattleApiKey) == 0 {
-		logrus.Fatalf("CATTLE_ACCESS_KEY is not set")
-	}
-
-	cattleSecretKey := os.Getenv("CATTLE_SECRET_KEY")
-	if len(cattleSecretKey) == 0 {
-		logrus.Fatalf("CATTLE_SECRET_KEY is not set")
-	}
 
 	//configure cattle client
-	c, err = NewCattleClient(cattleUrl, cattleApiKey, cattleSecretKey)
+	c, err = NewCattleClient(config.CattleURL, config.CattleAccessKey, config.CattleSecretKey)
 	if err != nil {
 		logrus.Fatalf("Failed to configure cattle client: %v", err)
+	}
+
+	// get provider
+	provider, err = providers.GetProvider(*providerName, config.RootDomainName)
+	if err != nil {
+		logrus.Fatalf("Failed to get provider '%s': %v", *providerName, err)
 	}
 }
 
 func main() {
 	logrus.Infof("Starting Rancher External DNS service")
 	setEnv()
-	logrus.Infof("Powered by %s", provider.GetName())
 
 	go startHealthcheck()
 
@@ -125,7 +126,7 @@ func main() {
 			}
 
 			for _, toUpdate := range updated {
-				serviceDnsRecord := dns.ConvertToServiceDnsRecord(toUpdate)
+				serviceDnsRecord := utils.ConvertToServiceDnsRecord(toUpdate)
 				c.UpdateServiceDomainName(serviceDnsRecord)
 			}
 

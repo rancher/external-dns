@@ -3,45 +3,36 @@ package providers
 import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/dns"
-	"github.com/rancher/external-dns/metadata"
+	"github.com/rancher/external-dns/utils"
 )
 
 type Provider interface {
-	AddRecord(record dns.DnsRecord) error
-	RemoveRecord(record dns.DnsRecord) error
-	UpdateRecord(record dns.DnsRecord) error
-	GetRecords() ([]dns.DnsRecord, error)
+	Init(rootDomainName string) error
 	GetName() string
+	HealthCheck() error
+	AddRecord(record utils.DnsRecord) error
+	RemoveRecord(record utils.DnsRecord) error
+	UpdateRecord(record utils.DnsRecord) error
+	GetRecords() ([]utils.DnsRecord, error)
 }
 
 var (
-	providers map[string]Provider
+	providers = make(map[string]Provider)
 )
 
-func init() {
-	// try to resolve rancher-metadata before going further
-	// the resolution indicates that the network has been set
-	_, err := metadata.NewMetadataClient()
-	if err != nil {
-		logrus.Fatalf("Failed to configure rancher-metadata client: %v", err)
-	}
-}
-
-func GetProvider(name string) Provider {
+func GetProvider(name, rootDomainName string) (Provider, error) {
 	if provider, ok := providers[name]; ok {
-		return provider
+		if err := provider.Init(rootDomainName); err != nil {
+			return nil, err
+		}
+		return provider, nil
 	}
-	return providers["route53"]
+	return nil, fmt.Errorf("No such provider '%s'", name)
 }
 
-func RegisterProvider(name string, provider Provider) error {
-	if providers == nil {
-		providers = make(map[string]Provider)
-	}
+func RegisterProvider(name string, provider Provider) {
 	if _, exists := providers[name]; exists {
-		return fmt.Errorf("provider already registered")
+		logrus.Fatalf("Provider '%s' tried to register twice", name)
 	}
 	providers[name] = provider
-	return nil
 }

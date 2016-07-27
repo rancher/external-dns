@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/rancher/external-dns/dns"
+	"github.com/rancher/external-dns/utils"
 	"github.com/rancher/go-rancher/client"
 )
 
@@ -25,7 +25,7 @@ func NewCattleClient(cattleUrl string, cattleAccessKey string, cattleSecretKey s
 	}, nil
 }
 
-func (c *CattleClient) UpdateServiceDomainName(serviceDnsRecord dns.ServiceDnsRecord) error {
+func (c *CattleClient) UpdateServiceDomainName(serviceDnsRecord utils.ServiceDnsRecord) error {
 
 	event := &client.ExternalDnsEvent{
 		EventType:   "dns.update",
