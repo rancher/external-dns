@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	metadataUrl = "http://rancher-metadata/2015-07-25"
+	metadataUrl = "http://rancher-metadata/2015-12-19"
 )
 
 type MetadataClient struct {
@@ -71,7 +71,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Dns
 	}
 
 	for _, container := range containers {
-		if len(container.ServiceName) == 0 {
+		if len(container.ServiceName) == 0 || len(container.Ports) == 0 || !containerStateOK(container) {
 			continue
 		}
 
@@ -82,10 +82,6 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Dns
 			if stackName != container.StackName {
 				continue
 			}
-		}
-
-		if len(container.Ports) == 0 {
-			continue
 		}
 
 		hostUUID := container.HostUUID
@@ -125,4 +121,23 @@ func addToDnsEntries(dnsEntry utils.DnsRecord, dnsEntries map[string]utils.DnsRe
 	}
 	dnsEntry = utils.DnsRecord{dnsEntry.Fqdn, records, "A", config.TTL}
 	dnsEntries[dnsEntry.Fqdn] = dnsEntry
+}
+
+func containerStateOK(container metadata.Container) bool {
+	switch container.State {
+	case "starting":
+	case "running":
+	default:
+		return false
+	}
+
+	switch container.HealthState {
+	case "healthy":
+	case "updating-healthy":
+	case "":
+	default:
+		return false
+	}
+
+	return true
 }

@@ -1,9 +1,10 @@
 package metadata
 
 type Stack struct {
-	EnvironmentName string   `json:"environment_name"`
-	Name            string   `json:"name"`
-	Services        []string `json:"services"`
+	EnvironmentName string    `json:"environment_name"`
+	EnvironmentUUID string    `json:"environment_uuid"`
+	Name            string    `json:"name"`
+	Services        []Service `json:"services"`
 }
 
 type Service struct {
@@ -17,11 +18,13 @@ type Service struct {
 	UUID        string                 `json:"uuid"`
 	ExternalIps []string               `json:"external_ips"`
 	Sidekicks   []string               `json:"sidekicks"`
-	Containers  []string               `json:"containers"`
+	Containers  []Container            `json:"containers"`
 	Ports       []string               `json:"ports"`
 	Labels      map[string]string      `json:"labels"`
 	Links       map[string]string      `json:"links"`
 	Metadata    map[string]interface{} `json:"metadata"`
+	Token       string                 `json:"token"`
+	Fqdn        string                 `json:"fqdn"`
 }
 
 type Container struct {
@@ -34,12 +37,17 @@ type Container struct {
 	Labels      map[string]string `json:"labels"`
 	CreateIndex int               `json:"create_index"`
 	HostUUID    string            `json:"host_uuid"`
+	UUID        string            `json:"uuid"`
+	State       string            `json:"state"`
+	HealthState string            `json:"health_state"`
+	ExternalId  string            `json:"external_id"`
 }
 
 type Host struct {
-	Name    string            `json:"name"`
-	AgentIP string            `json:"agent_ip"`
-	HostId  int               `json:"host_id"`
-	Labels  map[string]string `json:"labels"`
-	UUID    string            `json:"uuid"`
+	Name     string            `json:"name"`
+	AgentIP  string            `json:"agent_ip"`
+	HostId   int               `json:"host_id"`
+	Labels   map[string]string `json:"labels"`
+	UUID     string            `json:"uuid"`
+	Hostname string            `json:"hostname"`
 }
