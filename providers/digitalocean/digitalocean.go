@@ -78,9 +78,9 @@ func (p *DigitalOceanProvider) Init(rootDomainName string) error {
 	}
 
 	logrus.Infof("Configured %s for email %s and domain %s", p.GetName(), acct.Email, domains.Name)
-	logrus.Infof("Existing records:")
+	logrus.Debugf("Existing records:")
 	for _, r := range p.records {
-		logrus.Infof(" %s %s %s", r.Name, r.Type, r.Data)
+		logrus.Debugf(" %s %s %s", r.Name, r.Type, r.Data)
 	}
 
 	return nil
@@ -97,20 +97,20 @@ func (p *DigitalOceanProvider) HealthCheck() error {
 }
 
 func (p *DigitalOceanProvider) AddRecord(record utils.DnsRecord) error {
-	logrus.Infof("AddRecord")
+	logrus.Debugf("AddRecord")
 	for _, r := range record.Records {
 		createRequest := &godo.DomainRecordEditRequest{
 			Type: record.Type,
 			Name: record.Fqdn,
 			Data: r,
 		}
-		logrus.Infof(" request: %v", createRequest)
+		logrus.Debugf(" request: %v", createRequest)
 		p.limiter.Wait(1)
 		rec, _, err := p.client.Domains.CreateRecord(p.rootDomainName, createRequest)
 		if err != nil {
 			return fmt.Errorf("%s API call has failed: %v", p.GetName(), err)
 		}
-		logrus.Infof(" rec: %v", rec)
+		logrus.Debugf(" rec: %v", rec)
 		rec.Name = p.qualifyName(rec.Name)
 		p.records = append(p.records, *rec)
 	}
@@ -118,7 +118,7 @@ func (p *DigitalOceanProvider) AddRecord(record utils.DnsRecord) error {
 }
 
 func (p *DigitalOceanProvider) UpdateRecord(record utils.DnsRecord) error {
-	logrus.Infof("UpdateRecord")
+	logrus.Debugf("UpdateRecord")
 	if err := p.RemoveRecord(record); err != nil {
 		return err
 	}
@@ -126,7 +126,7 @@ func (p *DigitalOceanProvider) UpdateRecord(record utils.DnsRecord) error {
 }
 
 func (p *DigitalOceanProvider) RemoveRecord(record utils.DnsRecord) error {
-	logrus.Infof("RemoveRecord")
+	logrus.Debugf("RemoveRecord")
 	records := p.getRecords(record)
 	if len(records) == 0 {
 		return fmt.Errorf("No such record exists")
@@ -151,9 +151,9 @@ func (p *DigitalOceanProvider) GetRecords() ([]utils.DnsRecord, error) {
 
 	recordMap := map[string]map[string][]string{}
 
-	logrus.Infof("GetRecords")
+	logrus.Debugf("GetRecords")
 	for _, r := range p.records {
-		logrus.Infof(" %s %s %s", r.Name, r.Type, r.Data)
+		logrus.Debugf(" %s %s %s", r.Name, r.Type, r.Data)
 		fqdn := utils.Fqdn(r.Name)
 		recordSet, exists := recordMap[fqdn]
 		if exists {
@@ -170,12 +170,12 @@ func (p *DigitalOceanProvider) GetRecords() ([]utils.DnsRecord, error) {
 		}
 	}
 
-	logrus.Infof("recordSet")
+	logrus.Debugf("recordSet")
 	for fqdn, recordSet := range recordMap {
 		for recordType, recordSlice := range recordSet {
 			// Digital Ocean does not have per-record TTLs.
 			dnsRecord := utils.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: p.TTL}
-			logrus.Infof(" %v", dnsRecord)
+			logrus.Debugf(" %v", dnsRecord)
 			dnsRecords = append(dnsRecords, dnsRecord)
 		}
 	}
@@ -196,9 +196,9 @@ func (p *DigitalOceanProvider) getRecords(record utils.DnsRecord) []godo.DomainR
 			}
 		}
 	}
-	logrus.Infof("%d records", len(gdrs))
+	logrus.Debugf("%d records", len(gdrs))
 	for _, rec := range gdrs {
-		logrus.Infof(" record: %v", rec)
+		logrus.Debugf(" record: %v", rec)
 	}
 	return gdrs
 }
@@ -213,7 +213,7 @@ func (p *DigitalOceanProvider) recordIndex(rec godo.DomainRecord) int {
 }
 
 func (p *DigitalOceanProvider) getAllRecords() ([]godo.DomainRecord, error) {
-	logrus.Infof("getAllRecords")
+	logrus.Debugf("getAllRecords")
 	records := []godo.DomainRecord{}
 	opt := &godo.ListOptions{}
 	for {
@@ -224,7 +224,7 @@ func (p *DigitalOceanProvider) getAllRecords() ([]godo.DomainRecord, error) {
 		}
 		for _, r := range drecords {
 			if r.Name == "@" {
-				logrus.Infof("caught @")
+				logrus.Debugf("caught @")
 				r.Name = p.rootDomainName
 			} else {
 				r.Name = p.qualifyName(r.Name)
@@ -241,20 +241,20 @@ func (p *DigitalOceanProvider) getAllRecords() ([]godo.DomainRecord, error) {
 		}
 		opt.Page = page + 1
 	}
-	logrus.Infof("%d records", len(records))
+	logrus.Debugf("%d records", len(records))
 	for _, rec := range records {
-		logrus.Infof(" record: %v", rec)
+		logrus.Debugf(" record: %v", rec)
 	}
 	return records, nil
 }
 
 func (p *DigitalOceanProvider) qualifyName(name string) string {
-	logrus.Infof("qualifyName: %s", name)
+	logrus.Debugf("qualifyName: %s", name)
 	n := len(name)
 	if name[n-1] != '.' {
 		names := []string{name, p.rootDomainName}
 		name = strings.Join(names, ".")
-		logrus.Infof("new name: %s", name)
+		logrus.Debugf("new name: %s", name)
 	}
 	return name
 }
