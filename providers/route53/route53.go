@@ -11,8 +11,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	awsRoute53 "github.com/aws/aws-sdk-go/service/route53"
 	"github.com/juju/ratelimit"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/mathuin/external-dns/providers"
+	"github.com/mathuin/external-dns/utils"
 )
 
 var route53MaxRetries int = 4

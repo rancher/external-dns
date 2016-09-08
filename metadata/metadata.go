@@ -2,11 +2,12 @@ package metadata
 
 import (
 	"fmt"
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/config"
-	"github.com/rancher/external-dns/utils"
-	"github.com/rancher/go-rancher-metadata/metadata"
 	"time"
+
+	"github.com/Sirupsen/logrus"
+	"github.com/mathuin/external-dns/config"
+	"github.com/mathuin/external-dns/utils"
+	"github.com/rancher/go-rancher-metadata/metadata"
 )
 
 const (
@@ -14,11 +15,11 @@ const (
 )
 
 type MetadataClient struct {
-	MetadataClient  *metadata.Client
+	MetadataClient  metadata.Client
 	EnvironmentName string
 }
 
-func getEnvironmentName(m *metadata.Client) (string, error) {
+func getEnvironmentName(m metadata.Client) (string, error) {
 	timeout := 30 * time.Second
 	var err error
 	var stack metadata.Stack

@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/mathuin/external-dns/providers"
+	"github.com/mathuin/external-dns/utils"
 	api "github.com/weppos/go-dnsimple/dnsimple"
 )
 
