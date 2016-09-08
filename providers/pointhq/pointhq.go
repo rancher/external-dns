@@ -7,8 +7,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/cognetoapps/go-pointdns"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/mathuin/external-dns/providers"
+	"github.com/mathuin/external-dns/utils"
 )
 
 type PointHQProvider struct {

@@ -6,8 +6,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/jgreat/powerdns"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/mathuin/external-dns/providers"
+	"github.com/mathuin/external-dns/utils"
 )
 
 type PdnsProvider struct {
