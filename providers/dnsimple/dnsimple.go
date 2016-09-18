@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/juju/ratelimit"
 	"github.com/rancher/external-dns/providers"
 	"github.com/rancher/external-dns/utils"
 	api "github.com/weppos/go-dnsimple/dnsimple"
@@ -14,6 +15,7 @@ import (
 type DNSimpleProvider struct {
 	client *api.Client
 	root   string
+	limiter      *ratelimit.Bucket
 }
 
 func init() {
@@ -29,6 +31,8 @@ func (d *DNSimpleProvider) Init(rootDomainName string) error {
 	if apiToken = os.Getenv("DNSIMPLE_TOKEN"); len(apiToken) == 0 {
 		return fmt.Errorf("DNSIMPLE_TOKEN is not set")
 	}
+
+	d.limiter = ratelimit.NewBucketWithRate(5.0, 1)
 
 	d.root = utils.UnFqdn(rootDomainName)
 	d.client = api.NewClient(apiToken, email)
@@ -59,6 +63,7 @@ func (*DNSimpleProvider) GetName() string {
 }
 
 func (d *DNSimpleProvider) HealthCheck() error {
+	d.limiter.Wait(1)
 	_, _, err := d.client.Users.User()
 	return err
 }
@@ -77,6 +82,7 @@ func (d *DNSimpleProvider) AddRecord(record utils.DnsRecord) error {
 			Type:    record.Type,
 			Content: rec,
 		}
+		d.limiter.Wait(1)
 		_, _, err := d.client.Domains.CreateRecord(d.root, recordInput)
 		if err != nil {
 			return fmt.Errorf("DNSimple API call has failed: %v", err)
@@ -88,6 +94,7 @@ func (d *DNSimpleProvider) AddRecord(record utils.DnsRecord) error {
 
 func (d *DNSimpleProvider) findRecords(record utils.DnsRecord) ([]api.Record, error) {
 	var records []api.Record
+	d.limiter.Wait(1)
 	resp, _, err := d.client.Domains.ListRecords(d.root, "", "")
 	if err != nil {
 		return records, fmt.Errorf("DNSimple API call has failed: %v", err)
@@ -119,6 +126,7 @@ func (d *DNSimpleProvider) RemoveRecord(record utils.DnsRecord) error {
 	}
 
 	for _, rec := range records {
+		d.limiter.Wait(1)
 		_, err := d.client.Domains.DeleteRecord(d.root, rec.Id)
 		if err != nil {
 			return fmt.Errorf("DNSimple API call has failed: %v", err)
@@ -131,6 +139,7 @@ func (d *DNSimpleProvider) RemoveRecord(record utils.DnsRecord) error {
 func (d *DNSimpleProvider) GetRecords() ([]utils.DnsRecord, error) {
 	var records []utils.DnsRecord
 
+	d.limiter.Wait(1)
 	recordResp, _, err := d.client.Domains.ListRecords(d.root, "", "")
 	if err != nil {
 		return records, fmt.Errorf("DNSimple API call has failed: %v", err)
