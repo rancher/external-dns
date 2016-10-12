@@ -27,7 +27,7 @@ func healtcheck(w http.ResponseWriter, req *http.Request) {
 		// 2) test provider
 		err := provider.HealthCheck()
 		if err != nil {
-			logrus.Error("Healtcheck failed: Error from provider: %v", err)
+			logrus.Errorf("Healtcheck failed: Error from provider: %v", err)
 			http.Error(w, "Failed to reach an external provider ", http.StatusInternalServerError)
 		} else {
 			err := c.TestConnect()
