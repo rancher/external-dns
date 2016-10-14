@@ -93,6 +93,9 @@ func main() {
 	setEnv()
 
 	go startHealthcheck()
+	if err := EnsureUpgradeToStateRRSet(); err != nil {
+		logrus.Fatalf("Failed to ensure upgrade: %v", err)
+	}
 
 	version := "init"
 	lastUpdated := time.Now()

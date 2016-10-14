@@ -215,6 +215,10 @@
 			"Rev": "465def4b0436df65693acbb3e3c6ed1bdec79e24"
 		},
 		{
+			"ImportPath": "github.com/valyala/fasttemplate",
+			"Rev": "3b874956e03f1636d171bda64b130f9135f42cff"
+		},
+		{
 			"ImportPath": "github.com/weppos/go-dnsimple/dnsimple",
 			"Rev": "c82ccf106204c401644a24e8b45d16cf81e9cccb"
 		},

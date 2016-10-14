@@ -128,24 +128,28 @@ OuterLoop:
 
 		rrFqdn := rr.Header().Name
 		rrTTL := int(rr.Header().Ttl)
-		var rrType, rrValue string
+		var rrType string
+		var rrValues []string
 		switch rr.Header().Rrtype {
 		case dns.TypeCNAME:
-			rrValue = rr.(*dns.CNAME).Target
+			rrValues = []string{rr.(*dns.CNAME).Target}
 			rrType = "CNAME"
 		case dns.TypeA:
-			rrValue = rr.(*dns.A).A.String()
+			rrValues = []string{rr.(*dns.A).A.String()}
 			rrType = "A"
 		case dns.TypeAAAA:
-			rrValue = rr.(*dns.AAAA).AAAA.String()
+			rrValues = []string{rr.(*dns.AAAA).AAAA.String()}
 			rrType = "AAAA"
+		case dns.TypeTXT:
+			rrValues = rr.(*dns.TXT).Txt
+			rrType = "TXT"
 		default:
 			continue // Unhandled record type
 		}
 
 		for idx, existingRecord := range records {
 			if existingRecord.Fqdn == rrFqdn && existingRecord.Type == rrType {
-				records[idx].Records = append(records[idx].Records, rrValue)
+				records[idx].Records = append(records[idx].Records, rrValues...)
 				continue OuterLoop
 			}
 		}
@@ -154,7 +158,7 @@ OuterLoop:
 			Fqdn:    rrFqdn,
 			Type:    rrType,
 			TTL:     rrTTL,
-			Records: []string{rrValue},
+			Records: rrValues,
 		}
 
 		records = append(records, record)
