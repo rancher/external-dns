@@ -5,12 +5,12 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/external-dns/config"
 	"github.com/rancher/external-dns/utils"
-	"strings"
 )
 
-func UpdateProviderDnsRecords(metadataRecs map[string]utils.DnsRecord) ([]utils.DnsRecord, error) {
+func UpdateProviderDnsRecords(environmentUUID string, metadataRecs map[string]utils.DnsRecord) ([]utils.DnsRecord, error) {
 	var updated []utils.DnsRecord
-	providerRecs, err := getProviderDnsRecords()
+	stateFqdn := utils.GetStateFqdn(environmentUUID, config.RootDomainName)
+	providerRecs, err := getProviderDnsRecords(stateFqdn)
 	if err != nil {
 		return nil, fmt.Errorf("Provider error reading dns entries: %v", err)
 	}
@@ -127,17 +127,31 @@ func removeExtraRecords(metadataRecs map[string]utils.DnsRecord, providerRecs ma
 	return updateRecords(toRemove, &Remove)
 }
 
-func getProviderDnsRecords() (map[string]utils.DnsRecord, error) {
+func getProviderDnsRecords(stateFqdn string) (map[string]utils.DnsRecord, error) {
 	allRecords, err := provider.GetRecords()
 	if err != nil {
 		return nil, err
 	}
+
 	ourRecords := make(map[string]utils.DnsRecord, len(allRecords))
-	joins := []string{m.EnvironmentName, config.RootDomainName}
-	suffix := "." + strings.ToLower(strings.Join(joins, "."))
-	for _, value := range allRecords {
-		if value.Type == "A" && strings.HasSuffix(value.Fqdn, suffix) && value.TTL == config.TTL {
-			ourRecords[value.Fqdn] = value
+	ourFqdns := make(map[string]struct{})
+	// check the TXT record where we keep state on the fqdns that we are managing
+	logrus.Debug("Checking for state record")
+	for _, rec := range allRecords {
+		if rec.Fqdn == stateFqdn && rec.Type == "TXT" {
+			logrus.Debugf("Found state record: %s ", rec.Fqdn)
+			for _, value := range rec.Records {
+				ourFqdns[value] = struct{}{}
+			}
+			ourRecords[stateFqdn] = rec
+			break
+		}
+	}
+
+	for _, rec := range allRecords {
+		_, ok := ourFqdns[rec.Fqdn]
+		if ok && rec.Type == "A" {
+			ourRecords[rec.Fqdn] = rec
 		}
 	}
 	return ourRecords, nil
