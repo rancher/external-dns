@@ -132,7 +132,7 @@ func main() {
 			// querying the provider records.
 			if updateForced || !reflect.DeepEqual(metadataRecs, metadataRecsCached) {
 				// update the provider
-				updated, err := UpdateProviderDnsRecords(metadataRecs)
+				updated, err := UpdateProviderDnsRecords(m.EnvironmentUUID, metadataRecs)
 				if err != nil {
 					logrus.Errorf("Failed to update provider with new DNS records: %v", err)
 				}

@@ -140,6 +140,9 @@ func (r *Route53Provider) changeRecord(record utils.DnsRecord, action string) er
 	r.limiter.Wait(1)
 	records := make([]*awsRoute53.ResourceRecord, len(record.Records))
 	for idx, value := range record.Records {
+		if record.Type == "TXT" {
+			value = `"` + value + `"`
+		}
 		records[idx] = &awsRoute53.ResourceRecord{
 			Value: aws.String(value),
 		}
@@ -193,7 +196,11 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 		}
 		records := []string{}
 		for _, rr := range rrSet.ResourceRecords {
-			records = append(records, *rr.Value)
+			value := *rr.Value
+			if *rrSet.Type == "TXT" {
+				value = strings.Trim(value, `"`)
+			}
+			records = append(records, value)
 		}
 
 		dnsRecord := utils.DnsRecord{

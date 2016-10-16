@@ -16,9 +16,10 @@ const (
 type MetadataClient struct {
 	MetadataClient  *metadata.Client
 	EnvironmentName string
+	EnvironmentUUID string
 }
 
-func getEnvironmentName(m *metadata.Client) (string, error) {
+func getEnvironment(m *metadata.Client) (string, string, error) {
 	timeout := 30 * time.Second
 	var err error
 	var stack metadata.Stack
@@ -28,10 +29,10 @@ func getEnvironmentName(m *metadata.Client) (string, error) {
 			logrus.Errorf("Error reading stack info: %v...will retry", err)
 			time.Sleep(i)
 		} else {
-			return stack.EnvironmentName, nil
+			return stack.EnvironmentName, stack.EnvironmentUUID, nil
 		}
 	}
-	return "", fmt.Errorf("Error reading stack info: %v", err)
+	return "", "", fmt.Errorf("Error reading stack info: %v", err)
 }
 
 func NewMetadataClient() (*MetadataClient, error) {
@@ -40,7 +41,7 @@ func NewMetadataClient() (*MetadataClient, error) {
 		logrus.Fatalf("Failed to configure rancher-metadata: %v", err)
 	}
 
-	envName, err := getEnvironmentName(m)
+	envName, envUUID, err := getEnvironment(m)
 	if err != nil {
 		logrus.Fatalf("Error reading stack info: %v", err)
 	}
@@ -48,6 +49,7 @@ func NewMetadataClient() (*MetadataClient, error) {
 	return &MetadataClient{
 		MetadataClient:  m,
 		EnvironmentName: envName,
+		EnvironmentUUID: envUUID,
 	}, nil
 }
 
@@ -70,6 +72,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Dns
 		return err
 	}
 
+	ourFqdns := make(map[string]struct{})
 	for _, container := range containers {
 		if len(container.ServiceName) == 0 || len(container.Ports) == 0 || !containerStateOK(container) {
 			continue
@@ -101,10 +104,24 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Dns
 			ip = host.AgentIP
 		}
 
-		fqdn := utils.ConvertToFqdn(container.ServiceName, container.StackName, m.EnvironmentName, config.RootDomainName)
+		fqdn := utils.FqdnFromTemplate(config.NameTemplate, container.ServiceName, container.StackName,
+			m.EnvironmentName, config.RootDomainName)
 		records := []string{ip}
 		dnsEntry := utils.DnsRecord{fqdn, records, "A", config.TTL}
 
+		addToDnsEntries(dnsEntry, dnsEntries)
+		ourFqdns[fqdn] = struct{}{}
+	}
+
+	if len(ourFqdns) > 0 {
+		records := make([]string, len(ourFqdns))
+		idx := 0
+		for fqdn, _ := range ourFqdns {
+			records[idx] = fqdn
+			idx++
+		}
+		fqdn := utils.GetStateFqdn(m.EnvironmentUUID, config.RootDomainName)
+		dnsEntry := utils.DnsRecord{fqdn, records, "TXT", config.TTL}
 		addToDnsEntries(dnsEntry, dnsEntries)
 	}
 
@@ -119,7 +136,7 @@ func addToDnsEntries(dnsEntry utils.DnsRecord, dnsEntries map[string]utils.DnsRe
 		records = dnsEntries[dnsEntry.Fqdn].Records
 		records = append(records, dnsEntry.Records...)
 	}
-	dnsEntry = utils.DnsRecord{dnsEntry.Fqdn, records, "A", config.TTL}
+	dnsEntry = utils.DnsRecord{dnsEntry.Fqdn, records, dnsEntry.Type, dnsEntry.TTL}
 	dnsEntries[dnsEntry.Fqdn] = dnsEntry
 }
 
