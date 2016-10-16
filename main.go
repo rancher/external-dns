@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -20,7 +21,7 @@ import (
 )
 
 const (
-	poll = 1000
+	pollInterval = 1000
 	// if metadata wasn't updated in 1 min, force update would be executed
 	forceUpdateInterval = 1
 )
@@ -43,6 +44,8 @@ var (
 	provider providers.Provider
 	m        *metadata.MetadataClient
 	c        *CattleClient
+
+	metadataRecsCached = make(map[string]utils.DnsRecord)
 )
 
 func setEnv() {
@@ -93,46 +96,58 @@ func main() {
 
 	version := "init"
 	lastUpdated := time.Now()
-	for {
-		newVersion, err := m.GetVersion()
-		update := false
 
+	ticker := time.NewTicker(time.Duration(pollInterval) * time.Millisecond)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		update, updateForced := false, false
+		newVersion, err := m.GetVersion()
 		if err != nil {
-			logrus.Errorf("Error reading version: %v", err)
+			logrus.Errorf("Failed to get metadata version: %v", err)
 		} else if version != newVersion {
-			logrus.Debugf("Version has been changed. Old version: %s. New version: %s.", version, newVersion)
+			logrus.Debugf("Metadata version changed. Old: %s New: %s.", version, newVersion)
 			version = newVersion
 			update = true
 		} else {
-			logrus.Debugf("No changes in version: %s", newVersion)
 			if time.Since(lastUpdated).Minutes() >= forceUpdateInterval {
-				logrus.Debugf("Executing force update as version hasn't been changed in: %v minutes", forceUpdateInterval)
-				update = true
+				logrus.Debugf("Executing force update as metadata version hasn't changed in: %d minutes",
+					forceUpdateInterval)
+				updateForced = true
 			}
 		}
 
-		if update {
+		if update || updateForced {
 			// get records from metadata
 			metadataRecs, err := m.GetMetadataDnsRecords()
 			if err != nil {
-				logrus.Errorf("Error reading external dns entries: %v", err)
+				logrus.Errorf("Failed to get DNS records from metadata: %v", err)
 			}
+
 			logrus.Debugf("DNS records from metadata: %v", metadataRecs)
 
-			//update provider
-			updated, err := UpdateProviderDnsRecords(metadataRecs)
-			if err != nil {
-				logrus.Errorf("Failed to update provider with new DNS records: %v", err)
-			}
+			// A flapping service might cause the metadata version to change
+			// in short intervals. Caching the previous metadata DNS records
+			// allows us to check if the actual records have changed before
+			// querying the provider records.
+			if updateForced || !reflect.DeepEqual(metadataRecs, metadataRecsCached) {
+				// update the provider
+				updated, err := UpdateProviderDnsRecords(metadataRecs)
+				if err != nil {
+					logrus.Errorf("Failed to update provider with new DNS records: %v", err)
+				}
 
-			for _, toUpdate := range updated {
-				serviceDnsRecord := utils.ConvertToServiceDnsRecord(toUpdate)
-				c.UpdateServiceDomainName(serviceDnsRecord)
-			}
+				// update the service FQDN in Cattle
+				for _, toUpdate := range updated {
+					serviceDnsRecord := utils.ConvertToServiceDnsRecord(toUpdate)
+					c.UpdateServiceDomainName(serviceDnsRecord)
+				}
 
-			lastUpdated = time.Now()
+				metadataRecsCached = metadataRecs
+				lastUpdated = time.Now()
+			} else {
+				logrus.Debugf("DNS records from metadata did not change")
+			}
 		}
-
-		time.Sleep(time.Duration(poll) * time.Millisecond)
 	}
 }

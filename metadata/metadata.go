@@ -125,7 +125,6 @@ func addToDnsEntries(dnsEntry utils.DnsRecord, dnsEntries map[string]utils.DnsRe
 
 func containerStateOK(container metadata.Container) bool {
 	switch container.State {
-	case "starting":
 	case "running":
 	default:
 		return false
