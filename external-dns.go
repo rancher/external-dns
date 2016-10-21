@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/config"
-	"github.com/rancher/external-dns/utils"
 	"strings"
+
+	"github.com/Sirupsen/logrus"
+	"github.com/mathuin/external-dns/config"
+	"github.com/mathuin/external-dns/utils"
 )
 
 func UpdateProviderDnsRecords(metadataRecs map[string]utils.DnsRecord) ([]utils.DnsRecord, error) {

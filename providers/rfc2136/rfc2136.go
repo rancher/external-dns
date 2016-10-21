@@ -8,8 +8,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/mathuin/external-dns/providers"
+	"github.com/mathuin/external-dns/utils"
 )
 
 type RFC2136Provider struct {

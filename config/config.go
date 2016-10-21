@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/utils"
+	"github.com/mathuin/external-dns/utils"
 )
 
 var (
@@ -14,9 +14,11 @@ var (
 	CattleURL       string
 	CattleAccessKey string
 	CattleSecretKey string
+	ProviderName    string
 )
 
 func SetFromEnvironment() {
+	ProviderName = getEnv("PROVIDER")
 	CattleURL = getEnv("CATTLE_URL")
 	CattleAccessKey = getEnv("CATTLE_ACCESS_KEY")
 	CattleSecretKey = getEnv("CATTLE_SECRET_KEY")

@@ -6,8 +6,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	api "github.com/crackcomm/cloudflare"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/mathuin/external-dns/providers"
+	"github.com/mathuin/external-dns/utils"
 	"golang.org/x/net/context"
 )
 

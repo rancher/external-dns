@@ -7,17 +7,18 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/config"
-	"github.com/rancher/external-dns/metadata"
-	"github.com/rancher/external-dns/providers"
-	_ "github.com/rancher/external-dns/providers/cloudflare"
-	_ "github.com/rancher/external-dns/providers/dnsimple"
-	_ "github.com/rancher/external-dns/providers/gandi"
-	_ "github.com/rancher/external-dns/providers/pointhq"
-	_ "github.com/rancher/external-dns/providers/powerdns"
-	_ "github.com/rancher/external-dns/providers/rfc2136"
-	_ "github.com/rancher/external-dns/providers/route53"
-	"github.com/rancher/external-dns/utils"
+	"github.com/mathuin/external-dns/config"
+	"github.com/mathuin/external-dns/metadata"
+	"github.com/mathuin/external-dns/providers"
+	_ "github.com/mathuin/external-dns/providers/cloudflare"
+	_ "github.com/mathuin/external-dns/providers/digitalocean"
+	_ "github.com/mathuin/external-dns/providers/dnsimple"
+	_ "github.com/mathuin/external-dns/providers/gandi"
+	_ "github.com/mathuin/external-dns/providers/pointhq"
+	_ "github.com/mathuin/external-dns/providers/powerdns"
+	_ "github.com/mathuin/external-dns/providers/rfc2136"
+	_ "github.com/mathuin/external-dns/providers/route53"
+	"github.com/mathuin/external-dns/utils"
 )
 
 const (
@@ -37,9 +38,8 @@ var (
 )
 
 var (
-	providerName = flag.String("provider", "route53", "External provider name")
-	debug        = flag.Bool("debug", false, "Debug")
-	logFile      = flag.String("log", "", "Log file")
+	debug   = flag.Bool("debug", false, "Debug")
+	logFile = flag.String("log", "", "Log file")
 
 	provider providers.Provider
 	m        *metadata.MetadataClient
@@ -82,9 +82,9 @@ func setEnv() {
 	}
 
 	// get provider
-	provider, err = providers.GetProvider(*providerName, config.RootDomainName)
+	provider, err = providers.GetProvider(config.ProviderName, config.RootDomainName)
 	if err != nil {
-		logrus.Fatalf("Failed to get provider '%s': %v", *providerName, err)
+		logrus.Fatalf("Failed to get provider '%s': %v", config.ProviderName, err)
 	}
 }
 
