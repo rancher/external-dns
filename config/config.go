@@ -8,12 +8,17 @@ import (
 	"github.com/rancher/external-dns/utils"
 )
 
+const (
+	defaultNameTemplate = "%{{service_name}}.%{{stack_name}}.%{{environment_name}}"
+)
+
 var (
 	RootDomainName  string
 	TTL             int
 	CattleURL       string
 	CattleAccessKey string
 	CattleSecretKey string
+	NameTemplate    string
 )
 
 func SetFromEnvironment() {
@@ -21,6 +26,11 @@ func SetFromEnvironment() {
 	CattleAccessKey = getEnv("CATTLE_ACCESS_KEY")
 	CattleSecretKey = getEnv("CATTLE_SECRET_KEY")
 	RootDomainName = utils.Fqdn(getEnv("ROOT_DOMAIN"))
+	NameTemplate = os.Getenv("NAME_TEMPLATE")
+	if len(NameTemplate) == 0 {
+		NameTemplate = defaultNameTemplate
+	}
+
 	TTLEnv := os.Getenv("TTL")
 	i, err := strconv.Atoi(TTLEnv)
 	if err != nil {

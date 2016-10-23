@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/external-dns/config"
 	"github.com/rancher/external-dns/utils"
-	"strings"
 )
 
 func UpdateProviderDnsRecords(metadataRecs map[string]utils.DnsRecord) ([]utils.DnsRecord, error) {
@@ -132,13 +133,75 @@ func getProviderDnsRecords() (map[string]utils.DnsRecord, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	ourRecords := make(map[string]utils.DnsRecord, len(allRecords))
-	joins := []string{m.EnvironmentName, config.RootDomainName}
-	suffix := "." + strings.ToLower(strings.Join(joins, "."))
-	for _, value := range allRecords {
-		if value.Type == "A" && strings.HasSuffix(value.Fqdn, suffix) && value.TTL == config.TTL {
-			ourRecords[value.Fqdn] = value
+	if len(allRecords) == 0 {
+		return ourRecords, nil
+	}
+
+	stateFqdn := utils.StateFqdn(m.EnvironmentUUID, config.RootDomainName)
+	ourFqdns := make(map[string]struct{})
+
+	// Get the FQDNs that were created by us from the state RRSet
+	logrus.Debugf("Checking for state RRSet %s", stateFqdn)
+	for _, rec := range allRecords {
+		if rec.Fqdn == stateFqdn && rec.Type == "TXT" {
+			logrus.Debugf("FQDNs from state RRSet: %v", rec.Records)
+			for _, value := range rec.Records {
+				ourFqdns[value] = struct{}{}
+			}
+			ourRecords[stateFqdn] = rec
+			break
+		}
+	}
+
+	for _, rec := range allRecords {
+		_, ok := ourFqdns[rec.Fqdn]
+		if ok && rec.Type == "A" {
+			ourRecords[rec.Fqdn] = rec
 		}
 	}
 	return ourRecords, nil
+}
+
+// upgrade path from previous versions of external-dns.
+// checks for any pre-existing A records with names matching the legacy
+// suffix and TTLs matching the value of config.TTL. If any are found,
+// a state RRSet is created in the zone using the FQDNs of the records
+// as values.
+func EnsureUpgradeToStateRRSet() error {
+	allRecords, err := provider.GetRecords()
+	if err != nil {
+		return err
+	}
+
+	stateFqdn := utils.StateFqdn(m.EnvironmentUUID, config.RootDomainName)
+	logrus.Debugf("Checking for state RRSet %s", stateFqdn)
+	for _, rec := range allRecords {
+		if rec.Fqdn == stateFqdn && rec.Type == "TXT" {
+			logrus.Debugf("Found state RRSet with %d records", len(rec.Records))
+			return nil
+		}
+	}
+
+	logrus.Debug("State RRSet not found")
+	ourFqdns := make(map[string]struct{})
+	// records created by previous versions will match this suffix
+	joins := []string{m.EnvironmentName, config.RootDomainName}
+	suffix := "." + strings.ToLower(strings.Join(joins, "."))
+	for _, rec := range allRecords {
+		if rec.Type == "A" && strings.HasSuffix(rec.Fqdn, suffix) && rec.TTL == config.TTL {
+			ourFqdns[rec.Fqdn] = struct{}{}
+		}
+	}
+
+	if len(ourFqdns) > 0 {
+		logrus.Infof("Creating RRSet '%s TXT' for %d pre-existing records", stateFqdn, len(ourFqdns))
+		stateRec := utils.StateRecord(stateFqdn, config.TTL, ourFqdns)
+		if err := provider.AddRecord(stateRec); err != nil {
+			return fmt.Errorf("Failed to add RRSet to provider %v: %v", stateRec, err)
+		}
+	}
+
+	return nil
 }
