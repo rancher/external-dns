@@ -67,50 +67,56 @@ func (m *MetadataClient) GetMetadataDnsRecords() (map[string]utils.DnsRecord, er
 }
 
 func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.DnsRecord, serviceName string, stackName string) error {
-	containers, err := m.MetadataClient.GetContainers()
+	services, err := m.MetadataClient.GetServices()
 	if err != nil {
 		return err
 	}
 
 	ourFqdns := make(map[string]struct{})
-	for _, container := range containers {
-		if len(container.ServiceName) == 0 || len(container.Ports) == 0 || !containerStateOK(container) {
+	for _, service := range services {
+		if service.Kind != "service" {
 			continue
 		}
 
-		if len(serviceName) != 0 {
-			if serviceName != container.ServiceName {
+		for _, container := range service.Containers {
+			if len(container.Ports) == 0 || !containerStateOK(container) {
 				continue
 			}
-			if stackName != container.StackName {
+
+			if len(serviceName) != 0 {
+				if serviceName != container.ServiceName {
+					continue
+				}
+				if stackName != container.StackName {
+					continue
+				}
+			}
+
+			hostUUID := container.HostUUID
+			if len(hostUUID) == 0 {
+				logrus.Debugf("Container's %v host_uuid is empty", container.Name)
 				continue
 			}
+			host, err := m.MetadataClient.GetHost(hostUUID)
+			if err != nil {
+				logrus.Infof("%v", err)
+				continue
+			}
+
+			ip, ok := host.Labels["io.rancher.host.external_dns_ip"]
+
+			if !ok || ip == "" {
+				ip = host.AgentIP
+			}
+
+			fqdn := utils.FqdnFromTemplate(config.NameTemplate, container.ServiceName, container.StackName,
+				m.EnvironmentName, config.RootDomainName)
+			records := []string{ip}
+			dnsEntry := utils.DnsRecord{fqdn, records, "A", config.TTL}
+
+			addToDnsEntries(dnsEntry, dnsEntries)
+			ourFqdns[fqdn] = struct{}{}
 		}
-
-		hostUUID := container.HostUUID
-		if len(hostUUID) == 0 {
-			logrus.Debugf("Container's %v host_uuid is empty", container.Name)
-			continue
-		}
-		host, err := m.MetadataClient.GetHost(hostUUID)
-		if err != nil {
-			logrus.Infof("%v", err)
-			continue
-		}
-
-		ip, ok := host.Labels["io.rancher.host.external_dns_ip"]
-
-		if !ok || ip == "" {
-			ip = host.AgentIP
-		}
-
-		fqdn := utils.FqdnFromTemplate(config.NameTemplate, container.ServiceName, container.StackName,
-			m.EnvironmentName, config.RootDomainName)
-		records := []string{ip}
-		dnsEntry := utils.DnsRecord{fqdn, records, "A", config.TTL}
-
-		addToDnsEntries(dnsEntry, dnsEntries)
-		ourFqdns[fqdn] = struct{}{}
 	}
 
 	if len(ourFqdns) > 0 {
