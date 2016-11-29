@@ -59,58 +59,62 @@ func (m *MetadataClient) GetVersion() (string, error) {
 
 func (m *MetadataClient) GetMetadataDnsRecords() (map[string]utils.DnsRecord, error) {
 	dnsEntries := make(map[string]utils.DnsRecord)
-	err := m.getContainersDnsRecords(dnsEntries, "", "")
+	err := m.getContainersDnsRecords(dnsEntries)
 	if err != nil {
 		return dnsEntries, err
 	}
 	return dnsEntries, nil
 }
 
-func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.DnsRecord, serviceName string, stackName string) error {
-	containers, err := m.MetadataClient.GetContainers()
+func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.DnsRecord) error {
+	services, err := m.MetadataClient.GetServices()
 	if err != nil {
 		return err
 	}
 
 	ourFqdns := make(map[string]struct{})
-	for _, container := range containers {
-		if len(container.ServiceName) == 0 || len(container.Ports) == 0 || !containerStateOK(container) {
+	hostMeta := make(map[string]metadata.Host)
+	for _, service := range services {
+		if service.Kind != "service" && service.Kind != "loadBalancerService" {
 			continue
 		}
 
-		if len(serviceName) != 0 {
-			if serviceName != container.ServiceName {
+		for _, container := range service.Containers {
+			if len(container.Ports) == 0 || !containerStateOK(container) {
 				continue
 			}
-			if stackName != container.StackName {
+
+			hostUUID := container.HostUUID
+			if len(hostUUID) == 0 {
+				logrus.Debugf("Container's %v host_uuid is empty", container.Name)
 				continue
 			}
+
+			var host metadata.Host
+			if _, ok := hostMeta[hostUUID]; ok {
+				host = hostMeta[hostUUID]
+			} else {
+				host, err := m.MetadataClient.GetHost(hostUUID)
+				if err != nil {
+					logrus.Warnf("Failed to get host metadata: %v", err)
+					continue
+				}
+				hostMeta[hostUUID] = host
+			}
+
+			ip, ok := host.Labels["io.rancher.host.external_dns_ip"]
+			if !ok || ip == "" {
+				ip = host.AgentIP
+			}
+
+			fqdn := utils.FqdnFromTemplate(config.NameTemplate, container.ServiceName, container.StackName,
+				m.EnvironmentName, config.RootDomainName)
+			records := []string{ip}
+			dnsEntry := utils.DnsRecord{fqdn, records, "A", config.TTL}
+
+			addToDnsEntries(dnsEntry, dnsEntries)
+			ourFqdns[fqdn] = struct{}{}
 		}
-
-		hostUUID := container.HostUUID
-		if len(hostUUID) == 0 {
-			logrus.Debugf("Container's %v host_uuid is empty", container.Name)
-			continue
-		}
-		host, err := m.MetadataClient.GetHost(hostUUID)
-		if err != nil {
-			logrus.Infof("%v", err)
-			continue
-		}
-
-		ip, ok := host.Labels["io.rancher.host.external_dns_ip"]
-
-		if !ok || ip == "" {
-			ip = host.AgentIP
-		}
-
-		fqdn := utils.FqdnFromTemplate(config.NameTemplate, container.ServiceName, container.StackName,
-			m.EnvironmentName, config.RootDomainName)
-		records := []string{ip}
-		dnsEntry := utils.DnsRecord{fqdn, records, "A", config.TTL}
-
-		addToDnsEntries(dnsEntry, dnsEntries)
-		ourFqdns[fqdn] = struct{}{}
 	}
 
 	if len(ourFqdns) > 0 {
