@@ -94,7 +94,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Dns
 			if _, ok := hostMeta[hostUUID]; ok {
 				host = hostMeta[hostUUID]
 			} else {
-				host, err := m.MetadataClient.GetHost(hostUUID)
+				host, err = m.MetadataClient.GetHost(hostUUID)
 				if err != nil {
 					logrus.Warnf("Failed to get host metadata: %v", err)
 					continue
