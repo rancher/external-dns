@@ -75,12 +75,24 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Dns
 	ourFqdns := make(map[string]struct{})
 	hostMeta := make(map[string]metadata.Host)
 	for _, service := range services {
+
+		// Check for Service Label: io.rancher.service.external_dns
+		// Accepts 'always', 'auto' (default), or 'never'
+		policy, ok := service.Labels["io.rancher.service.external_dns"];
+		if !ok {
+			policy = "auto"
+		} else if policy == "never" {
+			logrus.Debugf("Service %v is Disabled", service.Name)
+			continue
+		}
+
 		if service.Kind != "service" && service.Kind != "loadBalancerService" {
 			continue
 		}
 
 		for _, container := range service.Containers {
-			if len(container.Ports) == 0 || !containerStateOK(container) {
+
+			if (len(container.Ports) == 0 && policy != "always") || !containerStateOK(container) {
 				continue
 			}
 
@@ -100,6 +112,15 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Dns
 					continue
 				}
 				hostMeta[hostUUID] = host
+			}
+
+			// Check for Host Label: io.rancher.host.external_dns
+			// Accepts 'true' (default) or 'false'
+			if label, ok := host.Labels["io.rancher.host.external_dns"]; ok {
+				if label == "false" {
+					logrus.Debugf("Container %v Host %s is Disabled", container.Name, host.Name)
+					continue
+				}
 			}
 
 			ip, ok := host.Labels["io.rancher.host.external_dns_ip"]
