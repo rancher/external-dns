@@ -1,7 +1,7 @@
 {
 	"ImportPath": "github.com/rancher/external-dns",
 	"GoVersion": "go1.5.1",
-	"GodepVersion": "v74",
+	"GodepVersion": "v75",
 	"Packages": [
 		"./..."
 	],
@@ -136,6 +136,11 @@
 			"Rev": "5765fe1bdc176ae984b074c8a89980d1f16e6dd8"
 		},
 		{
+			"ImportPath": "github.com/digitalocean/godo",
+			"Comment": "v0.9.0-68-g758b5be",
+			"Rev": "758b5be38ee8c630b0db89b00b7b87f064839099"
+		},
+		{
 			"ImportPath": "github.com/go-ini/ini",
 			"Comment": "v1.11.0",
 			"Rev": "12f418cc7edc5a618a51407b7ac1f1f512139df3"
@@ -178,6 +183,11 @@
 			"Rev": "48ab6605c66ac797e07f615101c3e9e10e932b66"
 		},
 		{
+			"ImportPath": "github.com/pkg/errors",
+			"Comment": "v0.8.0-2-g248dadf",
+			"Rev": "248dadf4e9068a0b3e79f02ed0a610d935de5302"
+		},
+		{
 			"ImportPath": "github.com/prasmussen/gandi-api/client",
 			"Rev": "47911529ecd365be607afe09a4fe0799e16c3ed7"
 		},
@@ -215,6 +225,10 @@
 			"Rev": "465def4b0436df65693acbb3e3c6ed1bdec79e24"
 		},
 		{
+			"ImportPath": "github.com/tent/http-link-go",
+			"Rev": "ac974c61c2f990f4115b119354b5e0b47550e888"
+		},
+		{
 			"ImportPath": "github.com/valyala/fasttemplate",
 			"Rev": "3b874956e03f1636d171bda64b130f9135f42cff"
 		},
@@ -225,6 +239,14 @@
 		{
 			"ImportPath": "golang.org/x/net/context",
 			"Rev": "633434aadc5ed438f45bc0efbb52c3a1ad7e64b9"
+		},
+		{
+			"ImportPath": "golang.org/x/oauth2",
+			"Rev": "314dd2c0bf3ebd592ec0d20847d27e79d0dbe8dd"
+		},
+		{
+			"ImportPath": "golang.org/x/oauth2/internal",
+			"Rev": "314dd2c0bf3ebd592ec0d20847d27e79d0dbe8dd"
 		}
 	]
 }
