@@ -51,7 +51,7 @@ func (p *DigitalOceanProvider) Init(rootDomainName string) error {
 
 	// DO's API is rate limited at 5000/hour.
 	doqps := (float64)(5000.0 / 3600.0)
-	p.limiter = ratelimit.NewBucketWithRate(doqps, 1)
+	p.limiter = ratelimit.NewBucketWithRate(doqps, 100)
 
 	p.rootDomainName = utils.UnFqdn(rootDomainName)
 
@@ -135,7 +135,7 @@ func (p *DigitalOceanProvider) RemoveRecord(record utils.DnsRecord) error {
 func (p *DigitalOceanProvider) GetRecords() ([]utils.DnsRecord, error) {
 	dnsRecords := []utils.DnsRecord{}
 	recordMap := map[string]map[string][]string{}
-	opt := &api.ListOptions{}
+	opt := &api.ListOptions{PerPage: 200}
 	for {
 		p.limiter.Wait(1)
 		drecords, resp, err := p.client.Domains.Records(p.rootDomainName, opt)
