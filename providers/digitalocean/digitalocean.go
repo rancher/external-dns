@@ -12,12 +12,12 @@ import (
 	"github.com/juju/ratelimit"
 	"github.com/rancher/external-dns/providers"
 	"github.com/rancher/external-dns/utils"
+	"github.com/rancher/external-dns/config"
 )
 
 type DigitalOceanProvider struct {
 	client         *api.Client
 	rootDomainName string
-	TTL            int
 	limiter        *ratelimit.Bucket
 }
 
@@ -69,7 +69,7 @@ func (p *DigitalOceanProvider) Init(rootDomainName string) error {
 		return err
 	}
 	// DO's TTLs are domain-wide.
-	p.TTL = domains.TTL
+	config.TTL = domains.TTL
 
 	logrus.Infof("Configured %s for email %s and domain %s", p.GetName(), acct.Email, domains.Name)
 
@@ -178,8 +178,8 @@ func (p *DigitalOceanProvider) GetRecords() ([]utils.DnsRecord, error) {
 	logrus.Debugf("recordSet")
 	for fqdn, recordSet := range recordMap {
 		for recordType, recordSlice := range recordSet {
-			// Digital Ocean does not have per-record TTLs.
-			dnsRecord := utils.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: p.TTL}
+			// DigitalOcean does not have per-record TTLs.
+			dnsRecord := utils.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: config.TTL}
 			logrus.Debugf(" %v", dnsRecord)
 			dnsRecords = append(dnsRecords, dnsRecord)
 		}
