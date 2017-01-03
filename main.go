@@ -18,6 +18,7 @@ import (
 	_ "github.com/rancher/external-dns/providers/powerdns"
 	_ "github.com/rancher/external-dns/providers/rfc2136"
 	_ "github.com/rancher/external-dns/providers/route53"
+	_ "github.com/rancher/external-dns/providers/vultr"
 	"github.com/rancher/external-dns/utils"
 )
 
