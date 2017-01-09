@@ -29,7 +29,7 @@ func (r *RFC2136Provider) Init(rootDomainName string) error {
 	var host, port, keyName, secret string
 	var insecure bool
 	var err error
-	
+
 	if host = os.Getenv("RFC2136_HOST"); len(host) == 0 {
 		return fmt.Errorf("RFC2136_HOST is not set")
 	}
@@ -41,9 +41,6 @@ func (r *RFC2136Provider) Init(rootDomainName string) error {
 	if insecureStr := os.Getenv("RFC2136_INSECURE"); len(insecureStr) == 0 {
 		insecure = false
 	} else {
-		// if insecure, err := strconv.ParseBool(os.Getenv("RFC2136_INSECURE")); err != nil {
-		// insecure, err = strconv.ParseBool(os.Getenv("RFC2136_INSECURE"))
-		// if  err != nil {
 		if insecure, err = strconv.ParseBool(insecureStr); err != nil {
 				return fmt.Errorf("RFC2136_INSECURE must be a boolean value")
 		}
