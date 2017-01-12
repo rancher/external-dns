@@ -189,9 +189,10 @@ func EnsureUpgradeToStateRRSet() error {
 	// records created by previous versions will match this suffix
 	joins := []string{m.EnvironmentName, config.RootDomainName}
 	suffix := "." + strings.ToLower(strings.Join(joins, "."))
-	for _, rec := range allRecords {
-		if rec.Type == "A" && strings.HasSuffix(rec.Fqdn, suffix) && rec.TTL == config.TTL {
-			ourFqdns[rec.Fqdn] = struct{}{}
+	logrus.Infof("DNS suffix: %s", suffix)
+	for _, value := range allRecords {
+		if value.Type == "A" && strings.HasSuffix(value.Fqdn, suffix) && value.TTL == config.TTL {
+			ourRecords[value.Fqdn] = struct{}{}
 		}
 	}
 
