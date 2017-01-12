@@ -157,8 +157,8 @@
 			"Rev": "5ed2f4547d7b9c036541b27a67ecf54e41756997"
 		},
 		{
-			"ImportPath": "github.com/jgreat/powerdns",
-			"Rev": "2682135eb5431af55792e331ce6d3cb43cda00a4"
+			"ImportPath": "github.com/dmportella/powerdns",
+			"Rev": "9d5cdada6d6b5d68ec0222986fdf5793c4cbb12e"
 		},
 		{
 			"ImportPath": "github.com/jmespath/go-jmespath",

@@ -135,6 +135,7 @@ func getProviderDnsRecords() (map[string]utils.DnsRecord, error) {
 	ourRecords := make(map[string]utils.DnsRecord, len(allRecords))
 	joins := []string{m.EnvironmentName, config.RootDomainName}
 	suffix := "." + strings.ToLower(strings.Join(joins, "."))
+	logrus.Infof("DNS suffix: %s", suffix)
 	for _, value := range allRecords {
 		if value.Type == "A" && strings.HasSuffix(value.Fqdn, suffix) && value.TTL == config.TTL {
 			ourRecords[value.Fqdn] = value

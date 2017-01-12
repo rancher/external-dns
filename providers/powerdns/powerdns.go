@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/jgreat/powerdns"
+	"github.com/dmportella/powerdns"
 	"github.com/rancher/external-dns/providers"
 	"github.com/rancher/external-dns/utils"
 )
@@ -50,15 +50,10 @@ func (d *PdnsProvider) HealthCheck() error {
 	return err
 }
 
-// utils.DnsRecord.Fqdn has a trailing. | powerdns.Record.Name doesn't
-func (d *PdnsProvider) parseName(record utils.DnsRecord) string {
-	return utils.UnFqdn(record.Fqdn)
-}
-
 func (d *PdnsProvider) AddRecord(record utils.DnsRecord) error {
 	logrus.Debugf("Called AddRecord with: %v\n", record)
-	name := d.parseName(record)
-	_, err := d.client.AddRecord(name, record.Type, record.TTL, record.Records)
+	name := record.Fqdn
+	err := d.client.AddRecord(name, record.Type, record.TTL, record.Records)
 	if err != nil {
 		logrus.Errorf("Failed to add Record for %s : %v", name, err)
 		return err
@@ -73,10 +68,12 @@ func (d *PdnsProvider) findRecords(record utils.DnsRecord) ([]powerdns.Record, e
 		return records, fmt.Errorf("PowerDNS API call has failed: %v", err)
 	}
 
-	name := d.parseName(record)
-	// utils.DnsRecord.Fqdn has a trailing. | powerdns.Record.Name doesn't
-	logrus.Debugf("Parsed Name is %s\n", name)
+	name := record.Fqdn	
+
+	logrus.Infof("RECORD NAME %s", name)
+
 	for _, rec := range resp {
+		
 		if rec.Name == name && rec.Type == record.Type {
 			records = append(records, rec)
 		}
@@ -105,9 +102,9 @@ func (d *PdnsProvider) RemoveRecord(record utils.DnsRecord) error {
 		return err
 	}
 
-	name := d.parseName(record)
+	name := record.Fqdn
 	for _, rec := range records {
-		_, err := d.client.DeleteRecord(name, record.Type, record.TTL, []string{rec.Content})
+		err := d.client.DeleteRecord(name, record.Type, record.TTL, []string{rec.Content})
 		if err != nil {
 			return fmt.Errorf("PowerDNS API call has failed: %v", err)
 		}
@@ -131,7 +128,7 @@ func (d *PdnsProvider) GetRecords() ([]utils.DnsRecord, error) {
 			continue
 		}
 
-		name := fmt.Sprintf("%s.", rec.Name)
+		name := rec.Name
 		// need to combine records with the same name
 		found := false
 		for i, re := range records {
