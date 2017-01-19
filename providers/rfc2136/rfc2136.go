@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"time"
+	"strconv"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
@@ -17,6 +18,7 @@ type RFC2136Provider struct {
 	zoneName    string
 	tsigKeyName string
 	tsigSecret  string
+	insecure    bool
 }
 
 func init() {
@@ -25,6 +27,9 @@ func init() {
 
 func (r *RFC2136Provider) Init(rootDomainName string) error {
 	var host, port, keyName, secret string
+	var insecure bool
+	var err error
+
 	if host = os.Getenv("RFC2136_HOST"); len(host) == 0 {
 		return fmt.Errorf("RFC2136_HOST is not set")
 	}
@@ -33,18 +38,32 @@ func (r *RFC2136Provider) Init(rootDomainName string) error {
 		return fmt.Errorf("RFC2136_PORT is not set")
 	}
 
-	if keyName = os.Getenv("RFC2136_TSIG_KEYNAME"); len(keyName) == 0 {
-		return fmt.Errorf("RFC2136_TSIG_KEYNAME is not set")
+	if insecureStr := os.Getenv("RFC2136_INSECURE"); len(insecureStr) == 0 {
+		insecure = false
+	} else {
+		if insecure, err = strconv.ParseBool(insecureStr); err != nil {
+				return fmt.Errorf("RFC2136_INSECURE must be a boolean value")
+		}
 	}
 
-	if secret = os.Getenv("RFC2136_TSIG_SECRET"); len(secret) == 0 {
-		return fmt.Errorf("RFC2136_TSIG_SECRET is not set")
+	if !insecure {
+		if keyName = os.Getenv("RFC2136_TSIG_KEYNAME"); len(keyName) == 0 {
+			return fmt.Errorf("RFC2136_TSIG_KEYNAME is not set")
+		}
+
+		if secret = os.Getenv("RFC2136_TSIG_SECRET"); len(secret) == 0 {
+			return fmt.Errorf("RFC2136_TSIG_SECRET is not set")
+		}
 	}
 
 	r.nameserver = net.JoinHostPort(host, port)
 	r.zoneName = dns.Fqdn(rootDomainName)
-	r.tsigKeyName = dns.Fqdn(keyName)
-	r.tsigSecret = secret
+	if !insecure {
+		r.tsigKeyName = dns.Fqdn(keyName)
+		r.tsigSecret = secret
+	}
+
+	r.insecure = insecure
 
 	logrus.Infof("Configured %s with zone '%s' and nameserver '%s'",
 		r.GetName(), r.zoneName, r.nameserver)
@@ -169,9 +188,13 @@ OuterLoop:
 
 func (r *RFC2136Provider) sendMessage(msg *dns.Msg) error {
 	c := new(dns.Client)
-	c.TsigSecret = map[string]string{r.tsigKeyName: r.tsigSecret}
 	c.SingleInflight = true
-	msg.SetTsig(r.tsigKeyName, dns.HmacMD5, 300, time.Now().Unix())
+
+	if !r.insecure {
+		c.TsigSecret = map[string]string{r.tsigKeyName: r.tsigSecret}
+		msg.SetTsig(r.tsigKeyName, dns.HmacMD5, 300, time.Now().Unix())
+	}
+
 	resp, _, err := c.Exchange(msg, r.nameserver)
 	if err != nil {
 		return err
@@ -187,11 +210,15 @@ func (r *RFC2136Provider) sendMessage(msg *dns.Msg) error {
 func (r *RFC2136Provider) list() ([]dns.RR, error) {
 	logrus.Debugf("Fetching records for '%s'", r.zoneName)
 	t := new(dns.Transfer)
-	t.TsigSecret = map[string]string{r.tsigKeyName: r.tsigSecret}
+	if !r.insecure {
+		t.TsigSecret = map[string]string{r.tsigKeyName: r.tsigSecret}
+	}
 
 	m := new(dns.Msg)
 	m.SetAxfr(r.zoneName)
-	m.SetTsig(r.tsigKeyName, dns.HmacMD5, 300, time.Now().Unix())
+	if !r.insecure {
+		m.SetTsig(r.tsigKeyName, dns.HmacMD5, 300, time.Now().Unix())
+	}
 
 	env, err := t.In(m, r.nameserver)
 	if err != nil {
