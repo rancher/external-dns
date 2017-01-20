@@ -127,6 +127,10 @@
 			"Rev": "31674057a16078061e8ea644c6c7b4486e65311d"
 		},
 		{
+			"ImportPath": "github.com/dmportella/powerdns",
+			"Rev": "91537687bcc3f23495cd66489f4aa1d2a658953a"
+		},
+		{
 			"ImportPath": "github.com/crackcomm/cloudflare",
 			"Rev": "a60ec0b4c5e4c44b522040a54293f7f93cf5b887"
 		},
