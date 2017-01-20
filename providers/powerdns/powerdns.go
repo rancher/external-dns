@@ -3,15 +3,16 @@ package powerdns
 import (
 	"fmt"
 	"os"
+	"encoding/json"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/jgreat/powerdns"
+	"github.com/dmportella/powerdns"
 	"github.com/rancher/external-dns/providers"
 	"github.com/rancher/external-dns/utils"
 )
 
 type PdnsProvider struct {
-	client *powerdns.PowerDNS
+	client *PowerDNS.Client
 	root   string
 }
 
@@ -29,10 +30,24 @@ func (d *PdnsProvider) Init(rootDomainName string) error {
 		return fmt.Errorf("POWERDNS_API_KEY is not set")
 	}
 
-	d.root = utils.UnFqdn(rootDomainName)
-	d.client = powerdns.New(url, "", d.root, apiKey)
+	client, err := PowerDNS.NewClient(url, apiKey)
 
-	_, err := d.client.GetRecords()
+	if err != nil {
+		return fmt.Errorf("Failed to initialize powerdns client : %v", err)
+	}
+
+	logrus.Infof("PDNS RECORD '%s'", client.ApiVersion)
+
+
+	d.client = client
+
+	if d.client.ApiVersion == 0 {
+		d.root = utils.UnFqdn(rootDomainName)
+	} else {
+		d.root = rootDomainName
+	}
+
+	_, err = d.client.ListRecords(d.root)
 	if err != nil {
 		return fmt.Errorf("Failed to list records for '%s': %v", d.root, err)
 	}
@@ -41,24 +56,47 @@ func (d *PdnsProvider) Init(rootDomainName string) error {
 	return nil
 }
 
+func (d *PdnsProvider) formatRecordName(fqdn string) string {
+	if d.client.ApiVersion == 0 {
+		return utils.UnFqdn(fqdn)
+	} else {
+		return fqdn
+	}
+}
+
 func (*PdnsProvider) GetName() string {
 	return "PowerDNS"
 }
 
 func (d *PdnsProvider) HealthCheck() error {
-	_, err := d.client.GetRecords()
+	_, err := d.client.ListRecords(d.root)
 	return err
-}
-
-// utils.DnsRecord.Fqdn has a trailing. | powerdns.Record.Name doesn't
-func (d *PdnsProvider) parseName(record utils.DnsRecord) string {
-	return utils.UnFqdn(record.Fqdn)
 }
 
 func (d *PdnsProvider) AddRecord(record utils.DnsRecord) error {
 	logrus.Debugf("Called AddRecord with: %v\n", record)
-	name := d.parseName(record)
-	_, err := d.client.AddRecord(name, record.Type, record.TTL, record.Records)
+	name := record.Fqdn
+
+	pdnsRRecordSet := PowerDNS.ResourceRecordSet{Name: d.formatRecordName(name), Type:record.Type, ChangeType:"REPLACE", TTL: record.TTL}
+
+	pdnsRRecordSet.Records = []PowerDNS.Record{}
+
+	for _, rec  := range record.Records {
+		val := PowerDNS.Record{Name: d.formatRecordName(name), Type:record.Type, Content: rec, Disabled: false, TTL: record.TTL}
+
+		// TXT records MUST be in quotes
+		if record.Type == "TXT" {
+			val.Content = fmt.Sprintf("\"%s\"", rec)
+		}
+
+		pdnsRRecordSet.Records = append(pdnsRRecordSet.Records, val)
+	}
+	
+	slcB, _ := json.MarshalIndent(pdnsRRecordSet, "", "    ")
+
+	logrus.Infof("PDNS RECORD '%s'", string(slcB))
+
+	_, err := d.client.ReplaceRecordSet(d.root, pdnsRRecordSet)
 	if err != nil {
 		logrus.Errorf("Failed to add Record for %s : %v", name, err)
 		return err
@@ -66,17 +104,17 @@ func (d *PdnsProvider) AddRecord(record utils.DnsRecord) error {
 	return nil
 }
 
-func (d *PdnsProvider) findRecords(record utils.DnsRecord) ([]powerdns.Record, error) {
-	var records []powerdns.Record
-	resp, err := d.client.GetRecords()
+func (d *PdnsProvider) findRecords(record utils.DnsRecord) ([]PowerDNS.Record, error) {
+	var records []PowerDNS.Record
+	resp, err := d.client.ListRecords(d.root)
 	if err != nil {
 		return records, fmt.Errorf("PowerDNS API call has failed: %v", err)
 	}
 
-	name := d.parseName(record)
-	// utils.DnsRecord.Fqdn has a trailing. | powerdns.Record.Name doesn't
-	logrus.Debugf("Parsed Name is %s\n", name)
+	name := d.formatRecordName(record.Fqdn)
+
 	for _, rec := range resp {
+		
 		if rec.Name == name && rec.Type == record.Type {
 			records = append(records, rec)
 		}
@@ -100,17 +138,20 @@ func (d *PdnsProvider) UpdateRecord(record utils.DnsRecord) error {
 func (d *PdnsProvider) RemoveRecord(record utils.DnsRecord) error {
 	logrus.Debugf("Called RemoveRecord with: %v\n", record)
 
-	records, err := d.findRecords(record)
+	exists, err := d.client.RecordExists(d.root, d.formatRecordName(record.Fqdn), record.Type);
+
 	if err != nil {
-		return err
+		return fmt.Errorf("PowerDNS API call has failed: %v", err)
 	}
 
-	name := d.parseName(record)
-	for _, rec := range records {
-		_, err := d.client.DeleteRecord(name, record.Type, record.TTL, []string{rec.Content})
-		if err != nil {
-			return fmt.Errorf("PowerDNS API call has failed: %v", err)
-		}
+	if !exists {
+		return nil
+	}
+
+	err = d.client.DeleteRecordSet(d.root, d.formatRecordName(record.Fqdn), record.Type)
+
+	if err != nil {
+		return fmt.Errorf("PowerDNS API call has failed: %v", err)
 	}
 
 	return nil
@@ -120,7 +161,7 @@ func (d *PdnsProvider) GetRecords() ([]utils.DnsRecord, error) {
 	logrus.Debug("Called GetRecords")
 	var records []utils.DnsRecord
 
-	pdnsRecords, err := d.client.GetRecords()
+	pdnsRecords, err := d.client.ListRecords(d.root)
 	if err != nil {
 		return records, fmt.Errorf("PowerDNS API call has failed: %v", err)
 	}
@@ -131,7 +172,7 @@ func (d *PdnsProvider) GetRecords() ([]utils.DnsRecord, error) {
 			continue
 		}
 
-		name := fmt.Sprintf("%s.", rec.Name)
+		name := rec.Name
 		// need to combine records with the same name
 		found := false
 		for i, re := range records {

@@ -127,6 +127,10 @@
 			"Rev": "31674057a16078061e8ea644c6c7b4486e65311d"
 		},
 		{
+			"ImportPath": "github.com/dmportella/powerdns",
+			"Rev": "91537687bcc3f23495cd66489f4aa1d2a658953a"
+		},
+		{
 			"ImportPath": "github.com/crackcomm/cloudflare",
 			"Rev": "a60ec0b4c5e4c44b522040a54293f7f93cf5b887"
 		},
@@ -160,10 +164,6 @@
 		{
 			"ImportPath": "github.com/gorilla/websocket",
 			"Rev": "5ed2f4547d7b9c036541b27a67ecf54e41756997"
-		},
-		{
-			"ImportPath": "github.com/jgreat/powerdns",
-			"Rev": "2682135eb5431af55792e331ce6d3cb43cda00a4"
 		},
 		{
 			"ImportPath": "github.com/jmespath/go-jmespath",
