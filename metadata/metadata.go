@@ -14,12 +14,12 @@ const (
 )
 
 type MetadataClient struct {
-	MetadataClient  *metadata.Client
+	MetadataClient  metadata.Client
 	EnvironmentName string
 	EnvironmentUUID string
 }
 
-func getEnvironment(m *metadata.Client) (string, string, error) {
+func getEnvironment(m metadata.Client) (string, string, error) {
 	timeout := 30 * time.Second
 	var err error
 	var stack metadata.Stack
