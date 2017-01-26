@@ -1,4 +1,8 @@
+.DS_Store
 external-dns
-build
-dist
-bin
+/.dapper
+/bin
+/build
+/dist
+*.swp
+/.trash-cache
