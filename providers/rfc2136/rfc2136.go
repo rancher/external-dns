@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"time"
 	"strconv"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
@@ -42,7 +42,7 @@ func (r *RFC2136Provider) Init(rootDomainName string) error {
 		insecure = false
 	} else {
 		if insecure, err = strconv.ParseBool(insecureStr); err != nil {
-				return fmt.Errorf("RFC2136_INSECURE must be a boolean value")
+			return fmt.Errorf("RFC2136_INSECURE must be a boolean value")
 		}
 	}
 

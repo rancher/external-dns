@@ -16,5 +16,5 @@ go vet ${PACKAGES}
 #    fi
 #done
 #test -z "$failed"
-echo Running: go fmt
-test -z "$(go fmt ${PACKAGES} | tee /dev/stderr)"
+#echo Running: go fmt
+#test -z "$(go fmt ${PACKAGES} | tee /dev/stderr)"

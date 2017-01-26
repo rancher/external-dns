@@ -78,7 +78,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Dns
 
 		// Check for Service Label: io.rancher.service.external_dns
 		// Accepts 'always', 'auto' (default), or 'never'
-		policy, ok := service.Labels["io.rancher.service.external_dns"];
+		policy, ok := service.Labels["io.rancher.service.external_dns"]
 		if !ok {
 			policy = "auto"
 		} else if policy == "never" {
