@@ -102,7 +102,7 @@ func (r *Route53Provider) validateHostedZoneId(rootDomainName string) error {
 	}
 	resp, err := r.client.GetHostedZone(params)
 	if err != nil {
-		return fmt.Errorf("Could not look up hosted zone ID: %v",
+		return fmt.Errorf("Could not look up hosted zone ID %s: %v",
 			r.hostedZoneId, err)
 	}
 

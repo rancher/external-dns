@@ -270,7 +270,7 @@ func (g *GandiProvider) newZoneVersion() (int64, error) {
 	// Get latest zone version
 	zoneInfo, err := g.zoneHandler.Info(g.zone.Id)
 	if err != nil {
-		return 0, fmt.Errorf("Failed to refresh zone information: %v", g.zone.Name, err)
+		return 0, fmt.Errorf("Failed to refresh information for zone %s: %v", g.zone.Name, err)
 	}
 
 	newVersion, err := g.zoneVersion.New(g.zone.Id, zoneInfo.Version)

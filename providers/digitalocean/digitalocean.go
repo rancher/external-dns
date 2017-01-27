@@ -10,9 +10,9 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/juju/ratelimit"
+	"github.com/rancher/external-dns/config"
 	"github.com/rancher/external-dns/providers"
 	"github.com/rancher/external-dns/utils"
-	"github.com/rancher/external-dns/config"
 )
 
 type DigitalOceanProvider struct {

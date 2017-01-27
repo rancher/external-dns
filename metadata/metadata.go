@@ -14,12 +14,12 @@ const (
 )
 
 type MetadataClient struct {
-	MetadataClient  *metadata.Client
+	MetadataClient  metadata.Client
 	EnvironmentName string
 	EnvironmentUUID string
 }
 
-func getEnvironment(m *metadata.Client) (string, string, error) {
+func getEnvironment(m metadata.Client) (string, string, error) {
 	timeout := 30 * time.Second
 	var err error
 	var stack metadata.Stack
@@ -78,7 +78,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Dns
 
 		// Check for Service Label: io.rancher.service.external_dns
 		// Accepts 'always', 'auto' (default), or 'never'
-		policy, ok := service.Labels["io.rancher.service.external_dns"];
+		policy, ok := service.Labels["io.rancher.service.external_dns"]
 		if !ok {
 			policy = "auto"
 		} else if policy == "never" {
