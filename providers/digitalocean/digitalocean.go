@@ -68,11 +68,10 @@ func (p *DigitalOceanProvider) Init(rootDomainName string) error {
 	if err != nil {
 		return err
 	}
+
 	// DO's TTLs are domain-wide.
 	config.TTL = domains.TTL
-
-	logrus.Infof("Configured %s for email %s and domain %s", p.GetName(), acct.Email, domains.Name)
-
+	logrus.Infof("Configured %s with email %s and domain %s", p.GetName(), acct.Email, domains.Name)
 	return nil
 }
 
@@ -87,29 +86,29 @@ func (p *DigitalOceanProvider) HealthCheck() error {
 }
 
 func (p *DigitalOceanProvider) AddRecord(record utils.DnsRecord) error {
-	logrus.Debugf("AddRecord")
 	for _, r := range record.Records {
 		createRequest := &api.DomainRecordEditRequest{
 			Type: record.Type,
 			Name: record.Fqdn,
 			Data: r,
 		}
-		logrus.Debugf(" request: %v", createRequest)
+
+		logrus.Debugf("Creating record: %v", createRequest)
 		p.limiter.Wait(1)
-		rec, _, err := p.client.Domains.CreateRecord(p.rootDomainName, createRequest)
+		_, _, err := p.client.Domains.CreateRecord(p.rootDomainName, createRequest)
 		if err != nil {
-			return fmt.Errorf("%s API call has failed: %v", p.GetName(), err)
+			return fmt.Errorf("API call has failed: %v", err)
 		}
-		logrus.Debugf(" rec: %v", rec)
 	}
+
 	return nil
 }
 
 func (p *DigitalOceanProvider) UpdateRecord(record utils.DnsRecord) error {
-	logrus.Debugf("UpdateRecord")
 	if err := p.RemoveRecord(record); err != nil {
 		return err
 	}
+
 	return p.AddRecord(record)
 }
 
@@ -128,7 +127,7 @@ func (p *DigitalOceanProvider) RemoveRecord(record utils.DnsRecord) error {
 			logrus.Debugf("Deleting record: %v", rec)
 			_, err := p.client.Domains.DeleteRecord(p.rootDomainName, rec.ID)
 			if err != nil {
-				return fmt.Errorf("%s API call has failed: %v", p.GetName(), err)
+				return fmt.Errorf("API call has failed: %v", err)
 			}
 		}
 	}
@@ -179,7 +178,6 @@ func (p *DigitalOceanProvider) fetchDoRecords() ([]api.DomainRecord, error) {
 		// Use the maximum of 200 records per page
 		PerPage: 200,
 	}
-
 	for {
 		p.limiter.Wait(1)
 		records, resp, err := p.client.Domains.Records(p.rootDomainName, opt)
