@@ -11,17 +11,17 @@ import (
 
 func UpdateProviderDnsRecords(metadataRecs map[string]utils.DnsRecord) ([]utils.DnsRecord, error) {
 	var updated []utils.DnsRecord
-	providerRecs, err := getProviderDnsRecords()
+	ourRecords, allRecords, err := getProviderDnsRecords()
 	if err != nil {
 		return nil, fmt.Errorf("Provider error reading dns entries: %v", err)
 	}
-	logrus.Debugf("DNS records from provider: %v", providerRecs)
+	logrus.Debugf("DNS records from provider: %v", ourRecords)
 
-	removeExtraRecords(metadataRecs, providerRecs)
+	removeExtraRecords(metadataRecs, ourRecords)
 
-	updated = append(updated, addMissingRecords(metadataRecs, providerRecs)...)
+	updated = append(updated, addMissingRecords(metadataRecs, allRecords)...)
 
-	updated = append(updated, updateExistingRecords(metadataRecs, providerRecs)...)
+	updated = append(updated, updateExistingRecords(metadataRecs, allRecords)...)
 
 	return updated, nil
 }
@@ -36,7 +36,7 @@ func addMissingRecords(metadataRecs map[string]utils.DnsRecord, providerRecs map
 	if len(toAdd) == 0 {
 		logrus.Debug("No DNS records to add")
 	} else {
-		logrus.Infof("DNS records to add: %v", toAdd)
+		logrus.Debugf("DNS records to add: %v", toAdd)
 	}
 	return updateRecords(toAdd, &Add)
 }
@@ -106,7 +106,7 @@ func updateExistingRecords(metadataRecs map[string]utils.DnsRecord, providerRecs
 	if len(toUpdate) == 0 {
 		logrus.Debug("No DNS records to update")
 	} else {
-		logrus.Infof("DNS records to update: %v", toUpdate)
+		logrus.Debugf("DNS records to update: %v", toUpdate)
 	}
 
 	return updateRecords(toUpdate, &Update)
@@ -123,20 +123,21 @@ func removeExtraRecords(metadataRecs map[string]utils.DnsRecord, providerRecs ma
 	if len(toRemove) == 0 {
 		logrus.Debug("No DNS records to remove")
 	} else {
-		logrus.Infof("DNS records to remove: %v", toRemove)
+		logrus.Debugf("DNS records to remove: %v", toRemove)
 	}
 	return updateRecords(toRemove, &Remove)
 }
 
-func getProviderDnsRecords() (map[string]utils.DnsRecord, error) {
-	allRecords, err := provider.GetRecords()
+func getProviderDnsRecords() (map[string]utils.DnsRecord, map[string]utils.DnsRecord, error) {
+	providerRecords, err := provider.GetRecords()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	ourRecords := make(map[string]utils.DnsRecord, len(allRecords))
-	if len(allRecords) == 0 {
-		return ourRecords, nil
+	allRecords := make(map[string]utils.DnsRecord)
+	ourRecords := make(map[string]utils.DnsRecord)
+	if len(providerRecords) == 0 {
+		return ourRecords, allRecords, nil
 	}
 
 	stateFqdn := utils.StateFqdn(m.EnvironmentUUID, config.RootDomainName)
@@ -144,7 +145,7 @@ func getProviderDnsRecords() (map[string]utils.DnsRecord, error) {
 
 	// Get the FQDNs that were created by us from the state RRSet
 	logrus.Debugf("Checking for state RRSet %s", stateFqdn)
-	for _, rec := range allRecords {
+	for _, rec := range providerRecords {
 		if rec.Fqdn == stateFqdn && rec.Type == "TXT" {
 			logrus.Debugf("FQDNs from state RRSet: %v", rec.Records)
 			for _, value := range rec.Records {
@@ -155,13 +156,20 @@ func getProviderDnsRecords() (map[string]utils.DnsRecord, error) {
 		}
 	}
 
-	for _, rec := range allRecords {
-		_, ok := ourFqdns[rec.Fqdn]
-		if ok && rec.Type == "A" {
-			ourRecords[rec.Fqdn] = rec
+	for _, rec := range providerRecords {
+		if rec.Type == "A" {
+			allRecords[rec.Fqdn] = rec
+			if _, ok := ourFqdns[rec.Fqdn]; ok {
+				ourRecords[rec.Fqdn] = rec
+			}
 		}
 	}
-	return ourRecords, nil
+
+	if stateRec, ok := ourRecords[stateFqdn]; ok {
+		allRecords[stateFqdn] = stateRec
+	}
+
+	return ourRecords, allRecords, nil
 }
 
 // upgrade path from previous versions of external-dns.
