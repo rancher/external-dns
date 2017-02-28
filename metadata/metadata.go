@@ -130,33 +130,37 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Dns
 
 			fqdn := utils.FqdnFromTemplate(config.NameTemplate, container.ServiceName, container.StackName,
 				m.EnvironmentName, config.RootDomainName)
-			records := []string{ip}
-			dnsEntry := utils.DnsRecord{fqdn, records, "A", config.TTL}
 
-			addToDnsEntries(dnsEntry, dnsEntries)
+			addToDnsEntries(fqdn, ip, dnsEntries)
 			ourFqdns[fqdn] = struct{}{}
 		}
 	}
 
 	if len(ourFqdns) > 0 {
-		fqdn := utils.StateFqdn(m.EnvironmentUUID, config.RootDomainName)
-		stateRec := utils.StateRecord(fqdn, config.TTL, ourFqdns)
-		addToDnsEntries(stateRec, dnsEntries)
+		stateFqdn := utils.StateFqdn(m.EnvironmentUUID, config.RootDomainName)
+		stateRec := utils.StateRecord(stateFqdn, config.TTL, ourFqdns)
+		dnsEntries[stateFqdn] = stateRec
 	}
 
 	return nil
 }
 
-func addToDnsEntries(dnsEntry utils.DnsRecord, dnsEntries map[string]utils.DnsRecord) {
+func addToDnsEntries(fqdn, ip string, dnsEntries map[string]utils.DnsRecord) {
 	var records []string
-	if _, ok := dnsEntries[dnsEntry.Fqdn]; !ok {
-		records = dnsEntry.Records
+	if _, ok := dnsEntries[fqdn]; !ok {
+		records = []string{ip}
 	} else {
-		records = dnsEntries[dnsEntry.Fqdn].Records
-		records = append(records, dnsEntry.Records...)
+		records = dnsEntries[fqdn].Records
+		// skip if the records already have that IP
+		for _, val := range records {
+			if val == ip {
+				return
+			}
+		}
+		records = append(records, ip)
 	}
-	dnsEntry = utils.DnsRecord{dnsEntry.Fqdn, records, dnsEntry.Type, dnsEntry.TTL}
-	dnsEntries[dnsEntry.Fqdn] = dnsEntry
+
+	dnsEntries[fqdn] = utils.DnsRecord{fqdn, records, "A", config.TTL}
 }
 
 func containerStateOK(container metadata.Container) bool {
