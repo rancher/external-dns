@@ -37,6 +37,9 @@ var (
 	Update = Op{Name: "Update"}
 )
 
+// set at build time
+var Version string
+
 var (
 	providerName = flag.String("provider", "route53", "External provider name")
 	debug        = flag.Bool("debug", false, "Debug")
@@ -90,7 +93,7 @@ func setEnv() {
 }
 
 func main() {
-	logrus.Infof("Starting Rancher External DNS service")
+	logrus.Infof("Starting Rancher External DNS service %s", Version)
 	setEnv()
 
 	go startHealthcheck()
@@ -98,7 +101,7 @@ func main() {
 		logrus.Fatalf("Failed to ensure upgrade: %v", err)
 	}
 
-	version := "init"
+	currentVersion := "init"
 	lastUpdated := time.Now()
 
 	ticker := time.NewTicker(time.Duration(pollInterval) * time.Millisecond)
@@ -109,9 +112,9 @@ func main() {
 		newVersion, err := m.GetVersion()
 		if err != nil {
 			logrus.Errorf("Failed to get metadata version: %v", err)
-		} else if version != newVersion {
-			logrus.Debugf("Metadata version changed. Old: %s New: %s.", version, newVersion)
-			version = newVersion
+		} else if currentVersion != newVersion {
+			logrus.Debugf("Metadata version changed. Old: %s New: %s.", currentVersion, newVersion)
+			currentVersion = newVersion
 			update = true
 		} else {
 			if time.Since(lastUpdated).Minutes() >= forceUpdateInterval {

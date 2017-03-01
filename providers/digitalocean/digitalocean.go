@@ -68,11 +68,10 @@ func (p *DigitalOceanProvider) Init(rootDomainName string) error {
 	if err != nil {
 		return err
 	}
+
 	// DO's TTLs are domain-wide.
 	config.TTL = domains.TTL
-
-	logrus.Infof("Configured %s for email %s and domain %s", p.GetName(), acct.Email, domains.Name)
-
+	logrus.Infof("Configured %s with email %s and domain %s", p.GetName(), acct.Email, domains.Name)
 	return nil
 }
 
@@ -87,103 +86,133 @@ func (p *DigitalOceanProvider) HealthCheck() error {
 }
 
 func (p *DigitalOceanProvider) AddRecord(record utils.DnsRecord) error {
-	logrus.Debugf("AddRecord")
 	for _, r := range record.Records {
 		createRequest := &api.DomainRecordEditRequest{
 			Type: record.Type,
 			Name: record.Fqdn,
 			Data: r,
 		}
-		logrus.Debugf(" request: %v", createRequest)
+
+		logrus.Debugf("Creating record: %v", createRequest)
 		p.limiter.Wait(1)
-		rec, _, err := p.client.Domains.CreateRecord(p.rootDomainName, createRequest)
+		_, _, err := p.client.Domains.CreateRecord(p.rootDomainName, createRequest)
 		if err != nil {
-			return fmt.Errorf("%s API call has failed: %v", p.GetName(), err)
+			return fmt.Errorf("API call has failed: %v", err)
 		}
-		logrus.Debugf(" rec: %v", rec)
 	}
+
 	return nil
 }
 
 func (p *DigitalOceanProvider) UpdateRecord(record utils.DnsRecord) error {
-	logrus.Debugf("UpdateRecord")
 	if err := p.RemoveRecord(record); err != nil {
 		return err
 	}
+
 	return p.AddRecord(record)
 }
 
 func (p *DigitalOceanProvider) RemoveRecord(record utils.DnsRecord) error {
-	logrus.Debugf("RemoveRecord")
-	p.limiter.Wait(1)
-	records, _, err := p.client.Domains.Records(p.rootDomainName, nil)
+	// We need to fetch paginated results to get all records
+	doRecords, err := p.fetchDoRecords()
 	if err != nil {
-		return err
+		return fmt.Errorf("RemoveRecord: %v", err)
 	}
-	for _, rec := range records {
-		if rec.Name == record.Fqdn && rec.Type == record.Type {
+
+	for _, rec := range doRecords {
+		// DO records don't have fully-qualified names like ours
+		fqdn := p.nameToFqdn(rec.Name)
+		if fqdn == record.Fqdn && rec.Type == record.Type {
 			p.limiter.Wait(1)
+			logrus.Debugf("Deleting record: %v", rec)
 			_, err := p.client.Domains.DeleteRecord(p.rootDomainName, rec.ID)
 			if err != nil {
-				return fmt.Errorf("%s API call has failed: %v", p.GetName(), err)
+				return fmt.Errorf("API call has failed: %v", err)
 			}
 		}
 	}
-	return err
+
+	return nil
 }
 
 func (p *DigitalOceanProvider) GetRecords() ([]utils.DnsRecord, error) {
 	dnsRecords := []utils.DnsRecord{}
 	recordMap := map[string]map[string][]string{}
-	opt := &api.ListOptions{PerPage: 200}
-	for {
-		p.limiter.Wait(1)
-		drecords, resp, err := p.client.Domains.Records(p.rootDomainName, opt)
-		if err != nil {
-			return nil, fmt.Errorf("%s API call has failed: %v", p.GetName(), err)
-		}
-		for _, r := range drecords {
-			if r.Name == "@" {
-				logrus.Debugf("caught @")
-				r.Name = p.rootDomainName
-			} else {
-				names := []string{r.Name, p.rootDomainName}
-				r.Name = strings.Join(names, ".")
-			}
-			fqdn := utils.Fqdn(r.Name)
-			recordSet, exists := recordMap[fqdn]
-			if exists {
-				recordSlice, sliceExists := recordSet[r.Type]
-				if sliceExists {
-					recordSlice = append(recordSlice, r.Data)
-					recordSet[r.Type] = recordSlice
-				} else {
-					recordSet[r.Type] = []string{r.Data}
-				}
-			} else {
-				recordMap[fqdn] = map[string][]string{}
-				recordMap[fqdn][r.Type] = []string{r.Data}
-			}
-		}
-		if resp.Links == nil || resp.Links.IsLastPage() {
-			break
-		}
-		page, err := resp.Links.CurrentPage()
-		if err != nil {
-			return nil, fmt.Errorf("%s API call has failed: %v", p.GetName(), err)
-		}
-		opt.Page = page + 1
+	doRecords, err := p.fetchDoRecords()
+	if err != nil {
+		return nil, fmt.Errorf("GetRecords: %v", err)
 	}
 
-	logrus.Debugf("recordSet")
+	for _, rec := range doRecords {
+		fqdn := p.nameToFqdn(rec.Name)
+		recordSet, exists := recordMap[fqdn]
+		if exists {
+			recordSlice, sliceExists := recordSet[rec.Type]
+			if sliceExists {
+				recordSlice = append(recordSlice, rec.Data)
+				recordSet[rec.Type] = recordSlice
+			} else {
+				recordSet[rec.Type] = []string{rec.Data}
+			}
+		} else {
+			recordMap[fqdn] = map[string][]string{}
+			recordMap[fqdn][rec.Type] = []string{rec.Data}
+		}
+	}
+
 	for fqdn, recordSet := range recordMap {
 		for recordType, recordSlice := range recordSet {
 			// DigitalOcean does not have per-record TTLs.
 			dnsRecord := utils.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: config.TTL}
-			logrus.Debugf(" %v", dnsRecord)
 			dnsRecords = append(dnsRecords, dnsRecord)
 		}
 	}
 
 	return dnsRecords, nil
+}
+
+// fetchDoRecords retrieves all records for the root domain from Digital Ocean.
+func (p *DigitalOceanProvider) fetchDoRecords() ([]api.DomainRecord, error) {
+	doRecords := []api.DomainRecord{}
+	opt := &api.ListOptions{
+		// Use the maximum of 200 records per page
+		PerPage: 200,
+	}
+	for {
+		p.limiter.Wait(1)
+		records, resp, err := p.client.Domains.Records(p.rootDomainName, opt)
+		if err != nil {
+			return nil, fmt.Errorf("API call has failed: %v", err)
+		}
+
+		if len(records) > 0 {
+			doRecords = append(doRecords, records...)
+		}
+
+		if resp.Links == nil || resp.Links.IsLastPage() || len(records) == 0 {
+			break
+		}
+
+		page, err := resp.Links.CurrentPage()
+		if err != nil {
+			return nil, fmt.Errorf("Failed to get current page: %v", err)
+		}
+
+		opt.Page = page + 1
+	}
+
+	logrus.Debugf("Fetched %d DO records", len(doRecords))
+	return doRecords, nil
+}
+
+func (p *DigitalOceanProvider) nameToFqdn(name string) string {
+	var fqdn string
+	if name == "@" {
+		fqdn = p.rootDomainName
+	} else {
+		names := []string{name, p.rootDomainName}
+		fqdn = strings.Join(names, ".")
+	}
+
+	return utils.Fqdn(fqdn)
 }
