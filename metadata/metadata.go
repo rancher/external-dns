@@ -2,11 +2,14 @@ package metadata
 
 import (
 	"fmt"
+	"net"
+	"strings"
+	"time"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/external-dns/config"
 	"github.com/rancher/external-dns/utils"
 	"github.com/rancher/go-rancher-metadata/metadata"
-	"time"
 )
 
 const (
@@ -123,15 +126,29 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Dns
 				}
 			}
 
-			ip, ok := host.Labels["io.rancher.host.external_dns_ip"]
-			if !ok || ip == "" {
-				ip = host.AgentIP
+			var externalIP string
+			if ip, ok := host.Labels["io.rancher.host.external_dns_ip"]; ok && len(ip) > 0 {
+				externalIP = ip
+			} else if len(container.Ports) > 0 {
+				if ip, ok := parsePortToIP(container.Ports[0]); ok {
+					externalIP = ip
+				}
+			}
+
+			// fallback to host agent IP
+			if len(externalIP) == 0 {
+				logrus.Debugf("Fallback to host.AgentIP %s for container %s", host.AgentIP, container.Name)
+				externalIP = host.AgentIP
+			}
+
+			if net.ParseIP(externalIP) == nil {
+				logrus.Errorf("Skipping container %s: Invalid IP address %s", container.Name, externalIP)
 			}
 
 			fqdn := utils.FqdnFromTemplate(config.NameTemplate, container.ServiceName, container.StackName,
 				m.EnvironmentName, config.RootDomainName)
 
-			addToDnsEntries(fqdn, ip, dnsEntries)
+			addToDnsEntries(fqdn, externalIP, dnsEntries)
 			ourFqdns[fqdn] = struct{}{}
 		}
 	}
@@ -179,4 +196,18 @@ func containerStateOK(container metadata.Container) bool {
 	}
 
 	return true
+}
+
+// expects port string as 'ip:publicPort:privatePort'
+// returns usable ip address
+func parsePortToIP(port string) (string, bool) {
+	parts := strings.Split(port, ":")
+	if len(parts) == 3 {
+		ip := parts[0]
+		if len(ip) > 0 && ip != "0.0.0.0" {
+			return ip, true
+		}
+	}
+
+	return "", false
 }
