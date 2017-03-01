@@ -228,7 +228,11 @@ func (r *RFC2136Provider) list() ([]dns.RR, error) {
 	records := make([]dns.RR, 0)
 	for e := range env {
 		if e.Error != nil {
-			logrus.Errorf("AXFR envelope error: %v", e.Error)
+			if e.Error == dns.ErrSoa {
+				logrus.Error("AXFR error: unexpected response received from the server")
+			} else {
+				logrus.Errorf("AXFR error: %v", e.Error)
+			}
 			continue
 		}
 		records = append(records, e.RR...)
