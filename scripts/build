@@ -6,5 +6,4 @@ source $(dirname $0)/version
 cd $(dirname $0)/..
 
 mkdir -p bin
-[ "$(uname)" != "Darwin" ] && LINKFLAGS="-linkmode external -extldflags -static -s"
-go build -ldflags "-X main.Version=$VERSION $LINKFLAGS" -o bin/external-dns
+CGO_ENABLED=0 go build -ldflags "-X main.Version=$VERSION -s" -o bin/external-dns
