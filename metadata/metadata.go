@@ -60,12 +60,21 @@ func (m *MetadataClient) GetVersion() (string, error) {
 	return m.MetadataClient.GetVersion()
 }
 
+func (m *MetadataClient) GetServiceToken() (string, error) {
+	service, err := m.MetadataClient.GetSelfService()
+	if err != nil {
+		return "", err
+	}
+
+	return service.Token, nil
+}
 
 func (m *MetadataClient) GetMetadataDnsRecords() (map[string]utils.MetadataDnsRecord, error) {
 	dnsEntries := make(map[string]utils.MetadataDnsRecord)
 	ourFqdns := make(map[string]struct{})
 
 	err := m.getSvcContainersDnsRecords(dnsEntries, ourFqdns)
+
 	if err != nil {
 		return dnsEntries, err
 	}
