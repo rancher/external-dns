@@ -27,7 +27,8 @@ func init() {
 	providers.RegisterProvider("route53", &Route53Provider{})
 }
 
-func (r *Route53Provider) Init(rootDomainName string) error {
+func (r *Route53Provider) Init() error {
+	rootDomainName := utils.GetDefaultRootDomain()
 	var region, accessKey, secretKey string
 	if region = os.Getenv("AWS_REGION"); len(region) == 0 {
 		return fmt.Errorf("AWS_REGION is not set")
@@ -116,6 +117,10 @@ func (r *Route53Provider) validateHostedZoneId(rootDomainName string) error {
 
 func (*Route53Provider) GetName() string {
 	return "Route 53"
+}
+
+func (*Route53Provider) GetRootDomain() string {
+	return utils.GetDefaultRootDomain()
 }
 
 func (r *Route53Provider) HealthCheck() error {
