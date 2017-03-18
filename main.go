@@ -16,6 +16,7 @@ import (
 	_ "github.com/rancher/external-dns/providers/gandi"
 	_ "github.com/rancher/external-dns/providers/pointhq"
 	_ "github.com/rancher/external-dns/providers/powerdns"
+	_ "github.com/rancher/external-dns/providers/rancher-public-dns"
 	_ "github.com/rancher/external-dns/providers/rfc2136"
 	_ "github.com/rancher/external-dns/providers/route53"
 	"github.com/rancher/external-dns/utils"
