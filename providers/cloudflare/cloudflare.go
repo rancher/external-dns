@@ -22,7 +22,8 @@ func init() {
 	providers.RegisterProvider("cloudflare", &CloudflareProvider{})
 }
 
-func (c *CloudflareProvider) Init(rootDomainName string) error {
+func (c *CloudflareProvider) Init() error {
+	rootDomainName := utils.GetDefaultRootDomain()
 	var email, apiKey string
 	if email = os.Getenv("CLOUDFLARE_EMAIL"); len(email) == 0 {
 		return fmt.Errorf("CLOUDFLARE_EMAIL is not set")
@@ -50,6 +51,10 @@ func (c *CloudflareProvider) Init(rootDomainName string) error {
 
 func (*CloudflareProvider) GetName() string {
 	return "CloudFlare"
+}
+
+func (*CloudflareProvider) GetRootDomain() string {
+	return utils.GetDefaultRootDomain()
 }
 
 func (c *CloudflareProvider) HealthCheck() error {

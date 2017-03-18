@@ -79,17 +79,25 @@ func setEnv() {
 		logrus.Fatalf("Failed to configure rancher-metadata client: %v", err)
 	}
 
-	//configure cattle client
+	// configure cattle client
 	c, err = NewCattleClient(config.CattleURL, config.CattleAccessKey, config.CattleSecretKey)
 	if err != nil {
 		logrus.Fatalf("Failed to configure cattle client: %v", err)
 	}
 
 	// get provider
-	provider, err = providers.GetProvider(*providerName, config.RootDomainName)
+	provider, err = providers.GetProvider(*providerName)
 	if err != nil {
 		logrus.Fatalf("Failed to get provider '%s': %v", *providerName, err)
 	}
+
+	// set root domain from provider
+	var rootDomain string
+	if rootDomain = provider.GetRootDomain(); len(rootDomain) == 0 {
+		logrus.Fatal("Provider did not return the root domain")
+	}
+
+	config.SetRootDomain(rootDomain)
 }
 
 func main() {

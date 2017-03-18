@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/utils"
 )
 
 var (
@@ -41,6 +40,10 @@ func SetFromEnvironment() {
 	} else {
 		TTL = i
 	}
+}
+
+func SetRootDomain(rootDomain string) {
+	RootDomainName = rootDomain
 }
 
 func getEnv(name string) string {
