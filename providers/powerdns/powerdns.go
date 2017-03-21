@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/jgreat/powerdns"
 	"github.com/rancher/external-dns/providers"
 	"github.com/rancher/external-dns/utils"
+	"github.com/waynz0r/go-powerdns"
 )
 
 type PdnsProvider struct {
@@ -29,10 +29,14 @@ func (d *PdnsProvider) Init(rootDomainName string) error {
 		return fmt.Errorf("POWERDNS_API_KEY is not set")
 	}
 
+	var err error
 	d.root = utils.UnFqdn(rootDomainName)
-	d.client = powerdns.New(url, "", d.root, apiKey)
+	d.client, err = powerdns.New(url, "", d.root, apiKey)
+	if err != nil {
+		return fmt.Errorf("Failed to initialize provider for '%s': %v", d.root, err)
+	}
 
-	_, err := d.client.GetRecords()
+	_, err = d.client.GetRecords()
 	if err != nil {
 		return fmt.Errorf("Failed to list records for '%s': %v", d.root, err)
 	}
@@ -58,7 +62,7 @@ func (d *PdnsProvider) parseName(record utils.DnsRecord) string {
 func (d *PdnsProvider) AddRecord(record utils.DnsRecord) error {
 	logrus.Debugf("Called AddRecord with: %v\n", record)
 	name := d.parseName(record)
-	_, err := d.client.AddRecord(name, record.Type, record.TTL, record.Records)
+	err := d.client.AddRecord(name, record.Type, record.TTL, record.Records)
 	if err != nil {
 		logrus.Errorf("Failed to add Record for %s : %v", name, err)
 		return err
@@ -107,7 +111,7 @@ func (d *PdnsProvider) RemoveRecord(record utils.DnsRecord) error {
 
 	name := d.parseName(record)
 	for _, rec := range records {
-		_, err := d.client.DeleteRecord(name, record.Type, record.TTL, []string{rec.Content})
+		err := d.client.DeleteRecord(name, record.Type, record.TTL, []string{rec.Content})
 		if err != nil {
 			return fmt.Errorf("PowerDNS API call has failed: %v", err)
 		}
