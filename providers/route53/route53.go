@@ -8,6 +8,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	awsRoute53 "github.com/aws/aws-sdk-go/service/route53"
 	"github.com/juju/ratelimit"
@@ -15,7 +17,10 @@ import (
 	"github.com/rancher/external-dns/utils"
 )
 
-var route53MaxRetries int = 4
+var (
+	route53MaxRetries int    = 3
+	route53region     string = "us-east-1"
+)
 
 type Route53Provider struct {
 	client       *awsRoute53.Route53
@@ -27,38 +32,40 @@ func init() {
 	providers.RegisterProvider("route53", &Route53Provider{})
 }
 
+// Init creates a Route53 client with credentials from one of these
+// two locations in that priority order:
+// 1) Environment variables: AWS_ACCESS_KEY, AWS_SECRET_KEY
+// 2) EC2 IAM role
 func (r *Route53Provider) Init(rootDomainName string) error {
-	var region, accessKey, secretKey string
-	if region = os.Getenv("AWS_REGION"); len(region) == 0 {
-		return fmt.Errorf("AWS_REGION is not set")
-	}
-
-	if accessKey = os.Getenv("AWS_ACCESS_KEY"); len(accessKey) == 0 {
-		return fmt.Errorf("AWS_ACCESS_KEY is not set")
-	}
-
-	if secretKey = os.Getenv("AWS_SECRET_KEY"); len(secretKey) == 0 {
-		return fmt.Errorf("AWS_SECRET_KEY is not set")
-	}
-
 	// Comply with the API's 5 req/s rate limit. If there are other
 	// clients using the same account the AWS SDK will throttle the
 	// requests automatically if the global rate limit is exhausted.
 	r.limiter = ratelimit.NewBucketWithRate(5.0, 1)
 
-	creds := credentials.NewStaticCredentials(accessKey, secretKey, "")
+	creds := credentials.NewChainCredentials(
+		[]credentials.Provider{
+			&credentials.EnvProvider{},
+			&ec2rolecreds.EC2RoleProvider{
+				Client: ec2metadata.New(session.Must(session.NewSession())),
+			},
+		})
+
 	config := aws.NewConfig().WithMaxRetries(route53MaxRetries).
 		WithCredentials(creds).
-		WithRegion(region)
+		WithRegion(route53region)
 
-	r.client = awsRoute53.New(session.New(config))
-
-	if err := r.setHostedZone(rootDomainName); err != nil {
-		return err
+	sess, err := session.NewSession(config)
+	if err != nil {
+		return fmt.Errorf("Failed to create Route53 session: %v", err)
 	}
 
-	logrus.Infof("Configured %s with hosted zone %s in region %s",
-		r.GetName(), rootDomainName, region)
+	r.client = awsRoute53.New(sess)
+	if err := r.setHostedZone(rootDomainName); err != nil {
+		return fmt.Errorf("Failed to configure hosted zone: %v", err)
+	}
+
+	logrus.Infof("Configured %s with hosted zone %s",
+		r.GetName(), rootDomainName)
 
 	return nil
 }
