@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/utils"
 )
 
 const (
@@ -25,7 +24,6 @@ func SetFromEnvironment() {
 	CattleURL = getEnv("CATTLE_URL")
 	CattleAccessKey = getEnv("CATTLE_ACCESS_KEY")
 	CattleSecretKey = getEnv("CATTLE_SECRET_KEY")
-	RootDomainName = utils.Fqdn(getEnv("ROOT_DOMAIN"))
 	NameTemplate = os.Getenv("NAME_TEMPLATE")
 	if len(NameTemplate) == 0 {
 		NameTemplate = defaultNameTemplate
@@ -38,6 +36,10 @@ func SetFromEnvironment() {
 	} else {
 		TTL = i
 	}
+}
+
+func SetRootDomain(rootDomain string) {
+	RootDomainName = rootDomain
 }
 
 func getEnv(name string) string {

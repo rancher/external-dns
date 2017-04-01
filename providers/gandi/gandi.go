@@ -32,7 +32,8 @@ func init() {
 	providers.RegisterProvider("gandi", &GandiProvider{})
 }
 
-func (g *GandiProvider) Init(rootDomainName string) error {
+func (g *GandiProvider) Init() error {
+	rootDomainName := utils.GetDefaultRootDomain()
 	var apiKey string
 	if apiKey = os.Getenv("GANDI_APIKEY"); len(apiKey) == 0 {
 		return fmt.Errorf("GANDI_APIKEY is not set")
@@ -93,6 +94,10 @@ func (g *GandiProvider) Init(rootDomainName string) error {
 
 func (*GandiProvider) GetName() string {
 	return "Gandi"
+}
+
+func (*GandiProvider) GetRootDomain() string {
+	return utils.GetDefaultRootDomain()
 }
 
 func (g *GandiProvider) HealthCheck() error {

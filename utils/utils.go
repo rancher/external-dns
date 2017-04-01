@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"strings"
 
@@ -87,6 +88,15 @@ func StateRecord(fqdn string, ttl int, entries map[string]struct{}) DnsRecord {
 		idx++
 	}
 	return DnsRecord{fqdn, records, "TXT", ttl}
+}
+
+func GetDefaultRootDomain() string {
+	var name string
+	if name = os.Getenv("ROOT_DOMAIN"); len(name) == 0 {
+		logrus.Fatal("ROOT_DOMAIN environment variable is not set")
+	}
+
+	return Fqdn(name)
 }
 
 // sanitizeLabel replaces characters that are not allowed in DNS labels with dashes.
