@@ -88,7 +88,7 @@ func (pdnsProvider *PdnsProvider) UpdateRecord(record utils.DnsRecord) error {
 		return fmt.Errorf("Failed to add '%s' record on '%s': %v", record.Fqdn, pdnsProvider.root, err)
 	}
 
-	logrus.Infof("Added '%s' record on '%s'", recordID, pdnsProvider.root)
+	logrus.Debugf("Added '%s' record on '%s'", recordID, pdnsProvider.root)
 
 	return nil
 }
