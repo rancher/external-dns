@@ -76,8 +76,14 @@ func (*RFC2136Provider) GetName() string {
 }
 
 func (r *RFC2136Provider) HealthCheck() error {
-	_, err := r.GetRecords()
-	return err
+	m := new(dns.Msg)
+	m.SetQuestion(r.zoneName, dns.TypeSOA)
+	err := r.sendMessage(m)
+	if err != nil {
+		return fmt.Errorf("Failed to query zone SOA record: %v", err)
+	}
+
+	return nil
 }
 
 func (r *RFC2136Provider) AddRecord(record utils.DnsRecord) error {
