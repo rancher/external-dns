@@ -189,6 +189,9 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 	err := r.client.ListResourceRecordSetsPages(params,
 		func(page *awsRoute53.ListResourceRecordSetsOutput, lastPage bool) bool {
 			rrSets = append(rrSets, page.ResourceRecordSets...)
+			if !lastPage {
+				r.limiter.Wait(1)
+			}
 			return !lastPage
 		})
 	if err != nil {
