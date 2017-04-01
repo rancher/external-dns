@@ -10,9 +10,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	awsRoute53 "github.com/aws/aws-sdk-go/service/route53"
+	 "github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
 	"github.com/juju/ratelimit"
 	"github.com/rancher/external-dns/providers"
 	"github.com/rancher/external-dns/utils"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 )
 
 var route53MaxRetries int = 4
@@ -45,20 +47,24 @@ func (r *Route53Provider) Init(rootDomainName string) error {
 	// clients using the same account the AWS SDK will throttle the
 	// requests automatically if the global rate limit is exhausted.
 	r.limiter = ratelimit.NewBucketWithRate(5.0, 1)
-
-	creds := credentials.NewStaticCredentials(accessKey, secretKey, "")
+	//creds := credentials.NewStaticCredentials(accessKey, secretKey, "")
+	creds := credentials.NewChainCredentials(
+	    []credentials.Provider{
+		&ec2rolecreds.EC2RoleProvider{
+		    Client: ec2metadata.New(session.New(&aws.Config{})),
+		},
+		&credentials.EnvProvider{},
+		&credentials.SharedCredentialsProvider{},
+	    })
 	config := aws.NewConfig().WithMaxRetries(route53MaxRetries).
 		WithCredentials(creds).
 		WithRegion(region)
-
 	r.client = awsRoute53.New(session.New(config))
 
 	if err := r.setHostedZone(rootDomainName); err != nil {
 		return err
 	}
 
-	logrus.Infof("Configured %s with hosted zone %s in region %s",
-		r.GetName(), rootDomainName, region)
 
 	return nil
 }
