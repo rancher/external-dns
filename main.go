@@ -23,8 +23,6 @@ import (
 
 const (
 	pollInterval = 1000
-	// if metadata wasn't updated in 1 min, force update would be executed
-	forceUpdateInterval = 1
 )
 
 type Op struct {
@@ -117,9 +115,9 @@ func main() {
 			currentVersion = newVersion
 			update = true
 		} else {
-			if time.Since(lastUpdated).Minutes() >= forceUpdateInterval {
+			if time.Since(lastUpdated).Minutes() >= float64(config.ForcedUpdateInterval) {
 				logrus.Debugf("Executing force update as metadata version hasn't changed in: %d minutes",
-					forceUpdateInterval)
+					config.ForcedUpdateInterval)
 				updateForced = true
 			}
 		}
