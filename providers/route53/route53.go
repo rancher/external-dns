@@ -18,8 +18,7 @@ import (
 )
 
 var (
-	route53MaxRetries int    = 3
-	route53region     string = "us-east-1"
+	route53MaxRetries int = 3
 )
 
 type Route53Provider struct {
@@ -51,8 +50,7 @@ func (r *Route53Provider) Init(rootDomainName string) error {
 		})
 
 	config := aws.NewConfig().WithMaxRetries(route53MaxRetries).
-		WithCredentials(creds).
-		WithRegion(route53region)
+		WithCredentials(creds)
 
 	sess, err := session.NewSession(config)
 	if err != nil {
