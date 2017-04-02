@@ -2,18 +2,18 @@ package main
 
 import (
 	"github.com/rancher/external-dns/utils"
-	"github.com/rancher/go-rancher/client"
+	rancher "github.com/rancher/go-rancher/v2"
 )
 
 type CattleClient struct {
-	rancherClient *client.RancherClient
+	rancherClient *rancher.RancherClient
 }
 
-func NewCattleClient(cattleUrl string, cattleAccessKey string, cattleSecretKey string) (*CattleClient, error) {
-	apiClient, err := client.NewRancherClient(&client.ClientOpts{
+func NewCattleClient(cattleUrl string, accessKey string, secretKey string) (*CattleClient, error) {
+	client, err := rancher.NewRancherClient(&rancher.ClientOpts{
 		Url:       cattleUrl,
-		AccessKey: cattleAccessKey,
-		SecretKey: cattleSecretKey,
+		AccessKey: accessKey,
+		SecretKey: secretKey,
 	})
 
 	if err != nil {
@@ -21,13 +21,12 @@ func NewCattleClient(cattleUrl string, cattleAccessKey string, cattleSecretKey s
 	}
 
 	return &CattleClient{
-		rancherClient: apiClient,
+		rancherClient: client,
 	}, nil
 }
 
 func (c *CattleClient) UpdateServiceDomainName(serviceDnsRecord utils.ServiceDnsRecord) error {
-
-	event := &client.ExternalDnsEvent{
+	event := &rancher.ExternalDnsEvent{
 		EventType:   "dns.update",
 		ExternalId:  serviceDnsRecord.Fqdn,
 		ServiceName: serviceDnsRecord.ServiceName,
@@ -39,7 +38,7 @@ func (c *CattleClient) UpdateServiceDomainName(serviceDnsRecord utils.ServiceDns
 }
 
 func (c *CattleClient) TestConnect() error {
-	opts := &client.ListOpts{}
+	opts := &rancher.ListOpts{}
 	_, err := c.rancherClient.ExternalDnsEvent.List(opts)
 	return err
 }
