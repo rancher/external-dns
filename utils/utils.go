@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
@@ -86,6 +87,7 @@ func StateRecord(fqdn string, ttl int, entries map[string]struct{}) DnsRecord {
 		records[idx] = entry
 		idx++
 	}
+	sort.Strings(records)
 	return DnsRecord{fqdn, records, "TXT", ttl}
 }
 
