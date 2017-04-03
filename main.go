@@ -129,6 +129,7 @@ func main() {
 			metadataRecs, err := m.GetMetadataDnsRecords()
 			if err != nil {
 				logrus.Errorf("Failed to get DNS records from metadata: %v", err)
+				continue
 			}
 
 			logrus.Debugf("DNS records from metadata: %v", metadataRecs)
@@ -142,6 +143,7 @@ func main() {
 				updated, err := UpdateProviderDnsRecords(metadataRecs)
 				if err != nil {
 					logrus.Errorf("Failed to update provider with new DNS records: %v", err)
+					continue
 				}
 
 				// update the service FQDN in Cattle
