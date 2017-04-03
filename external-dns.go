@@ -144,7 +144,6 @@ func getProviderDnsRecords() (map[string]utils.DnsRecord, map[string]utils.DnsRe
 	ourFqdns := make(map[string]struct{})
 
 	// Get the FQDNs that were created by us from the state RRSet
-	logrus.Debugf("Checking for state RRSet %s", stateFqdn)
 	for _, rec := range providerRecords {
 		if rec.Fqdn == stateFqdn && rec.Type == "TXT" {
 			logrus.Debugf("FQDNs from state RRSet: %v", rec.Records)

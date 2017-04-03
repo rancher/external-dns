@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	pollInterval = 1000
+	pollIntervalSeconds = 1
 	// if metadata wasn't updated in 1 min, force update would be executed
-	forceUpdateInterval = 1
+	forceUpdateIntervalMinutes = 1
 )
 
 type Op struct {
@@ -104,22 +104,20 @@ func main() {
 	currentVersion := "init"
 	lastUpdated := time.Now()
 
-	ticker := time.NewTicker(time.Duration(pollInterval) * time.Millisecond)
-	defer ticker.Stop()
-
-	for range ticker.C {
+	for {
 		update, updateForced := false, false
 		newVersion, err := m.GetVersion()
 		if err != nil {
 			logrus.Errorf("Failed to get metadata version: %v", err)
+			goto sleep
 		} else if currentVersion != newVersion {
 			logrus.Debugf("Metadata version changed. Old: %s New: %s.", currentVersion, newVersion)
 			currentVersion = newVersion
 			update = true
 		} else {
-			if time.Since(lastUpdated).Minutes() >= forceUpdateInterval {
+			if time.Since(lastUpdated).Minutes() >= forceUpdateIntervalMinutes {
 				logrus.Debugf("Executing force update as metadata version hasn't changed in: %d minutes",
-					forceUpdateInterval)
+					forceUpdateIntervalMinutes)
 				updateForced = true
 			}
 		}
@@ -129,6 +127,7 @@ func main() {
 			metadataRecs, err := m.GetMetadataDnsRecords()
 			if err != nil {
 				logrus.Errorf("Failed to get DNS records from metadata: %v", err)
+				goto sleep
 			}
 
 			logrus.Debugf("DNS records from metadata: %v", metadataRecs)
@@ -142,6 +141,7 @@ func main() {
 				updated, err := UpdateProviderDnsRecords(metadataRecs)
 				if err != nil {
 					logrus.Errorf("Failed to update provider with new DNS records: %v", err)
+					goto sleep
 				}
 
 				// update the service FQDN in Cattle
@@ -156,5 +156,7 @@ func main() {
 				logrus.Debugf("DNS records from metadata did not change")
 			}
 		}
+	sleep:
+		time.Sleep(pollIntervalSeconds * time.Second)
 	}
 }
