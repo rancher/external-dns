@@ -2,13 +2,17 @@ package powerdns4
 
 import (
 	"fmt"
-	"strings"
 	"os"
+	"strings"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/dmportella/powerdns"
 	"github.com/rancher/external-dns/providers"
 	"github.com/rancher/external-dns/utils"
+)
+
+const (
+	providerName = "powerdns4"
 )
 
 type PdnsProvider struct {
@@ -20,6 +24,7 @@ func init() {
 	providers.RegisterProvider("powerdns4", &PdnsProvider{})
 }
 
+// Init Initialise the powerdns4 provider.
 func (pdnsProvider *PdnsProvider) Init(rootDomainName string) error {
 	var url, apiKey string
 	if url = os.Getenv("POWERDNS_URL"); len(url) == 0 {
@@ -33,7 +38,7 @@ func (pdnsProvider *PdnsProvider) Init(rootDomainName string) error {
 	pdnsProvider.root = utils.UnFqdn(rootDomainName)
 
 	var client *powerdns.Client
-	client, err := powerdns.NewClient(url, apiKey);
+	client, err := powerdns.NewClient(url, apiKey)
 	if err != nil {
 		return fmt.Errorf("Failed to connect to '%s': %v", pdnsProvider.root, err)
 	}
@@ -43,31 +48,35 @@ func (pdnsProvider *PdnsProvider) Init(rootDomainName string) error {
 	return nil
 }
 
+// GetName Returns the name of the dns provider.
 func (*PdnsProvider) GetName() string {
-	return "powerdns4"
+	return providerName
 }
 
+// HealthCheck Checks that the external-dns provider can talk to powerdns.
 func (pdnsProvider *PdnsProvider) HealthCheck() error {
 	if _, err := pdnsProvider.client.ListZones(); err != nil {
-		return fmt.Errorf("HealthCheck failed for '%s' with error '%s'.", pdnsProvider.GetName(), err)
+		return fmt.Errorf("healthcheck failed for '%s' with error '%s'", pdnsProvider.GetName(), err)
 	}
 	return nil
 }
 
+// AddRecord Adds a record to the zone.
 func (pdnsProvider *PdnsProvider) AddRecord(record utils.DnsRecord) error {
-	logrus.Debugf("Called AddRecord with: %v\n", record)	
-	
+	logrus.Debugf("Called AddRecord with: %v\n", record)
+
 	return pdnsProvider.UpdateRecord(record)
 }
 
+// UpdateRecord Updates a record in the zone.
 func (pdnsProvider *PdnsProvider) UpdateRecord(record utils.DnsRecord) error {
 	logrus.Debugf("Called UpdateRecord with: %v\n", record)
 
 	rrSet := powerdns.ResourceRecordSet{
-		Name: record.Fqdn,
-		Type: record.Type,
+		Name:       record.Fqdn,
+		Type:       record.Type,
 		ChangeType: "REPLACE",
-		TTL: record.TTL,
+		TTL:        record.TTL,
 	}
 
 	records := make([]powerdns.Record, 0)
@@ -93,6 +102,7 @@ func (pdnsProvider *PdnsProvider) UpdateRecord(record utils.DnsRecord) error {
 	return nil
 }
 
+// RemoveRecord Removes a record in the zone.
 func (pdnsProvider *PdnsProvider) RemoveRecord(record utils.DnsRecord) error {
 	logrus.Debugf("Called RemoveRecord with: %v\n", record)
 
@@ -105,30 +115,31 @@ func (pdnsProvider *PdnsProvider) RemoveRecord(record utils.DnsRecord) error {
 		return nil
 	}
 
-
 	return pdnsProvider.client.DeleteRecordSet(pdnsProvider.root, record.Fqdn, record.Type)
 }
 
+// GetRecords Returns all records in the zone.
 func (pdnsProvider *PdnsProvider) GetRecords() ([]utils.DnsRecord, error) {
 	logrus.Debugf("Called GetRecords")
 
 	rrSets, err := pdnsProvider.client.ListRecordsAsRRSet(pdnsProvider.root)
 	if err != nil {
-		return nil, fmt.Errorf("Failed getting records in zone '%s': %v", pdnsProvider.root, err)	
+		return nil, fmt.Errorf("Failed getting records in zone '%s': %v", pdnsProvider.root, err)
 	}
 
 	result := make([]utils.DnsRecord, 0)
 
 	for _, rrSet := range rrSets {
 		rancherRec := utils.DnsRecord{
-			Fqdn: rrSet.Name,
+			Fqdn:    rrSet.Name,
 			Type:    rrSet.Type,
-			TTL: rrSet.TTL,
+			TTL:     rrSet.TTL,
 			Records: []string{},
 		}
 
 		records := make([]string, 0)
 		for _, rec := range rrSet.Records {
+			// Powerdns saves and expects TXT record values to be in quotes which is part of the DNS rfc1464.
 			if rancherRec.Type == "TXT" {
 				rec.Content = strings.Replace(rec.Content, "\"", "", -1)
 			}
