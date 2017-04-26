@@ -13,6 +13,8 @@ TAG=${TAG:-${VERSION}${SUFFIX}}
 REPO=${REPO:-rancher}
 
 cp ../bin/external-dns .
-docker build -t ${REPO}/external-dns:${TAG} .
 
-echo Built ${REPO}/external-dns:${TAG}
+IMAGE=${REPO}/external-dns:${TAG}
+docker build -t ${IMAGE} .
+echo ${IMAGE} > ../dist/images
+echo Built ${IMAGE}
