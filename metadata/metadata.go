@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	metadataUrl = "http://rancher-metadata/2015-12-19"
+	metadataUrl = "http://rancher-metadata.rancher.internal/2015-12-19"
 )
 
 type MetadataClient struct {
