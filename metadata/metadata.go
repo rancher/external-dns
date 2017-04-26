@@ -145,7 +145,12 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Dns
 				logrus.Errorf("Skipping container %s: Invalid IP address %s", container.Name, externalIP)
 			}
 
-			fqdn := utils.FqdnFromTemplate(config.NameTemplate, container.ServiceName, container.StackName,
+			nameTemplate, ok := service.Labels["io.rancher.service.external_dns_name_template"]
+			if !ok {
+				nameTemplate = config.NameTemplate
+			}
+
+			fqdn := utils.FqdnFromTemplate(nameTemplate, container.ServiceName, container.StackName,
 				m.EnvironmentName, config.RootDomainName)
 
 			addToDnsEntries(fqdn, externalIP, dnsEntries)
