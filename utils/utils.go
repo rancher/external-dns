@@ -15,23 +15,21 @@ const (
 	stateRecordFqdnTemplate = "external-dns-%s.%s"
 )
 
+// MetadataDnsRecord is a wrapper around a DnsRecord
+// that holds information about the service and stack
+// the record belongs to
+type MetadataDnsRecord struct {
+	ServiceName string
+	StackName   string
+	DnsRecord   DnsRecord
+}
+
+// DnsRecord represents a provider DNS record
 type DnsRecord struct {
 	Fqdn    string
 	Records []string
 	Type    string
 	TTL     int
-}
-
-type ServiceDnsRecord struct {
-	Fqdn        string
-	ServiceName string
-	StackName   string
-}
-
-func ConvertToServiceDnsRecord(dnsRecord DnsRecord) ServiceDnsRecord {
-	splitted := strings.Split(dnsRecord.Fqdn, ".")
-	serviceRecord := ServiceDnsRecord{dnsRecord.Fqdn, splitted[0], splitted[1]}
-	return serviceRecord
 }
 
 // Fqdn ensures that the name is a fqdn adding a trailing dot if necessary.

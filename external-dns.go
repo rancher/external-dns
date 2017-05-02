@@ -9,8 +9,8 @@ import (
 	"github.com/rancher/external-dns/utils"
 )
 
-func UpdateProviderDnsRecords(metadataRecs map[string]utils.DnsRecord) ([]utils.DnsRecord, error) {
-	var updated []utils.DnsRecord
+func UpdateProviderDnsRecords(metadataRecs map[string]utils.MetadataDnsRecord) ([]utils.MetadataDnsRecord, error) {
+	var updated []utils.MetadataDnsRecord
 	ourRecords, allRecords, err := getProviderDnsRecords()
 	if err != nil {
 		return nil, fmt.Errorf("Provider error reading dns entries: %v", err)
@@ -26,8 +26,8 @@ func UpdateProviderDnsRecords(metadataRecs map[string]utils.DnsRecord) ([]utils.
 	return updated, nil
 }
 
-func addMissingRecords(metadataRecs map[string]utils.DnsRecord, providerRecs map[string]utils.DnsRecord) []utils.DnsRecord {
-	var toAdd []utils.DnsRecord
+func addMissingRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) []utils.MetadataDnsRecord {
+	var toAdd []utils.MetadataDnsRecord
 	for key := range metadataRecs {
 		if _, ok := providerRecs[key]; !ok {
 			toAdd = append(toAdd, metadataRecs[key])
@@ -38,28 +38,29 @@ func addMissingRecords(metadataRecs map[string]utils.DnsRecord, providerRecs map
 	} else {
 		logrus.Debugf("DNS records to add: %v", toAdd)
 	}
+
 	return updateRecords(toAdd, &Add)
 }
 
-func updateRecords(toChange []utils.DnsRecord, op *Op) []utils.DnsRecord {
-	var changed []utils.DnsRecord
+func updateRecords(toChange []utils.MetadataDnsRecord, op *Op) []utils.MetadataDnsRecord {
+	var changed []utils.MetadataDnsRecord
 	for _, value := range toChange {
 		switch *op {
 		case Add:
 			logrus.Infof("Adding dns record: %v", value)
-			if err := provider.AddRecord(value); err != nil {
+			if err := provider.AddRecord(value.DnsRecord); err != nil {
 				logrus.Errorf("Failed to add DNS record to provider %v: %v", value, err)
 			} else {
 				changed = append(changed, value)
 			}
 		case Remove:
 			logrus.Infof("Removing dns record: %v", value)
-			if err := provider.RemoveRecord(value); err != nil {
+			if err := provider.RemoveRecord(value.DnsRecord); err != nil {
 				logrus.Errorf("Failed to remove DNS record from provider %v: %v", value, err)
 			}
 		case Update:
 			logrus.Infof("Updating dns record: %v", value)
-			if err := provider.UpdateRecord(value); err != nil {
+			if err := provider.UpdateRecord(value.DnsRecord); err != nil {
 				logrus.Errorf("Failed to update DNS record to provider %v: %v", value, err)
 			} else {
 				changed = append(changed, value)
@@ -69,12 +70,12 @@ func updateRecords(toChange []utils.DnsRecord, op *Op) []utils.DnsRecord {
 	return changed
 }
 
-func updateExistingRecords(metadataRecs map[string]utils.DnsRecord, providerRecs map[string]utils.DnsRecord) []utils.DnsRecord {
-	var toUpdate []utils.DnsRecord
+func updateExistingRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) []utils.MetadataDnsRecord {
+	var toUpdate []utils.MetadataDnsRecord
 	for key := range metadataRecs {
 		if _, ok := providerRecs[key]; ok {
-			metadataR := make(map[string]struct{}, len(metadataRecs[key].Records))
-			for _, s := range metadataRecs[key].Records {
+			metadataR := make(map[string]struct{}, len(metadataRecs[key].DnsRecord.Records))
+			for _, s := range metadataRecs[key].DnsRecord.Records {
 				metadataR[s] = struct{}{}
 			}
 
@@ -112,11 +113,11 @@ func updateExistingRecords(metadataRecs map[string]utils.DnsRecord, providerRecs
 	return updateRecords(toUpdate, &Update)
 }
 
-func removeExtraRecords(metadataRecs map[string]utils.DnsRecord, providerRecs map[string]utils.DnsRecord) []utils.DnsRecord {
-	var toRemove []utils.DnsRecord
+func removeExtraRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) []utils.MetadataDnsRecord {
+	var toRemove []utils.MetadataDnsRecord
 	for key := range providerRecs {
 		if _, ok := metadataRecs[key]; !ok {
-			toRemove = append(toRemove, providerRecs[key])
+			toRemove = append(toRemove, utils.MetadataDnsRecord{"", "", providerRecs[key]})
 		}
 	}
 
@@ -125,6 +126,7 @@ func removeExtraRecords(metadataRecs map[string]utils.DnsRecord, providerRecs ma
 	} else {
 		logrus.Debugf("DNS records to remove: %v", toRemove)
 	}
+
 	return updateRecords(toRemove, &Remove)
 }
 
