@@ -18,6 +18,12 @@ func (e Error) Error() string {
 	return fmt.Sprintf("%v", e.Message)
 }
 
+// APIVersion struct
+type APIVersion struct {
+	URL     string `json:"url"`
+	Version int    `json:"version"`
+}
+
 // ServerInfo struct
 type ServerInfo struct {
 	ConfigURL  string `json:"config_url"`
@@ -245,10 +251,21 @@ func (p *PowerDNS) patchRRset(rrset RRset, action string) error {
 
 func (p *PowerDNS) detectAPIVersion() (int, error) {
 
+	versions := new([]APIVersion)
 	info := new(ServerInfo)
 	rerr := new(Error)
 
-	resp, err := p.getSling().Path("servers/").Path(p.server).Receive(info, rerr)
+	resp, err := p.getSling().Path("api").Receive(versions, rerr)
+	if resp == nil && err != nil {
+		return -1, err
+	}
+
+	if resp.StatusCode == 404 {
+		resp, err = p.getSling().Path("servers/").Path(p.server).Receive(info, rerr)
+		if resp == nil && err != nil {
+			return -1, err
+		}
+	}
 
 	if resp.StatusCode != 200 {
 		rerr.Message = strings.Join([]string{resp.Status, rerr.Message}, " ")
@@ -259,11 +276,15 @@ func (p *PowerDNS) detectAPIVersion() (int, error) {
 		return -1, err
 	}
 
-	if len(info.ConfigURL) > 6 && info.ConfigURL[0:7] == "/api/v1" {
-		return 1, nil
+	latestVersion := APIVersion{"", 0}
+	for _, v := range *versions {
+		if v.Version > latestVersion.Version {
+			latestVersion = v
+		}
 	}
+	p.path = p.path + latestVersion.URL
 
-	return 0, err
+	return latestVersion.Version, err
 }
 
 func (p *PowerDNS) getSling() *sling.Sling {
