@@ -10,8 +10,7 @@ import (
 	"github.com/rancher/external-dns/metadata"
 	"github.com/rancher/external-dns/providers"
 	"github.com/rancher/external-dns/utils"
-	rancherClient "github.com/rancher/go-rancher/client"
-	rancherPublicDNS "github.com/rancher/public-dns-client/client"
+	rancherPublicDNS "github.com/rancher/public-dns-client/dnsclient"
 	"gopkg.in/yaml.v2"
 )
 
@@ -20,7 +19,7 @@ const (
 )
 
 type PublicDnsProvider struct {
-	dnsClient  *rancherPublicDNS.RancherDNSClient
+	dnsClient  *rancherPublicDNS.RancherClient
 	rootDomain string
 	authToken  string
 }
@@ -168,7 +167,7 @@ func (p *PublicDnsProvider) GetRecords() ([]utils.DnsRecord, error) {
 
 func (p *PublicDnsProvider) preparePublicDNSRecord(record utils.DnsRecord) *rancherPublicDNS.DnsRecord {
 	return &rancherPublicDNS.DnsRecord{
-		Resource: rancherClient.Resource{
+		Resource: rancherPublicDNS.Resource{
 			Id:   "id-" + record.Fqdn,
 			Type: rancherPublicDNS.DNS_RECORD_TYPE,
 		},
@@ -198,8 +197,8 @@ func (p *PublicDnsProvider) getAuthTokenAndRootDomain() error {
 // Private functions
 //
 
-func newPublicDNSClient(url string, authToken string) *rancherPublicDNS.RancherDNSClient {
-	dnsClient, err := rancherPublicDNS.NewRancherDNSClient(&rancherClient.ClientOpts{
+func newPublicDNSClient(url string, authToken string) *rancherPublicDNS.RancherClient {
+	dnsClient, err := rancherPublicDNS.NewRancherClient(&rancherPublicDNS.ClientOpts{
 		Url:             url,
 		CustomAuthToken: "Bearer " + authToken,
 	})
