@@ -2,13 +2,9 @@ package utils
 
 import (
 	"fmt"
-	"io"
 	"regexp"
 	"sort"
 	"strings"
-
-	"github.com/Sirupsen/logrus"
-	"github.com/valyala/fasttemplate"
 )
 
 const (
@@ -50,28 +46,6 @@ func UnFqdn(name string) string {
 	return name
 }
 
-func FqdnFromTemplate(template, serviceName, stackName, environmentName, rootDomainName string) string {
-	t, err := fasttemplate.NewTemplate(template, "%{{", "}}")
-	if err != nil {
-		logrus.Fatalf("error while parsing fqdn template: %s", err)
-	}
-
-	fqdn := t.ExecuteFuncString(func(w io.Writer, tag string) (int, error) {
-		switch tag {
-		case "service_name":
-			return w.Write([]byte(sanitizeLabel(serviceName)))
-		case "stack_name":
-			return w.Write([]byte(sanitizeLabel(stackName)))
-		case "environment_name":
-			return w.Write([]byte(sanitizeLabel(environmentName)))
-		default:
-			return 0, fmt.Errorf("invalid placeholder '%q' in fqdn template", tag)
-		}
-	})
-
-	labels := []string{fqdn, rootDomainName}
-	return strings.ToLower(strings.Join(labels, "."))
-}
 
 func StateFqdn(environmentUUID, rootDomainName string) string {
 	fqdn := fmt.Sprintf(stateRecordFqdnTemplate, environmentUUID, rootDomainName)
