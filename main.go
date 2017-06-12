@@ -49,7 +49,7 @@ var (
 	m        *metadata.MetadataClient
 	c        *CattleClient
 
-	metadataRecsCached = make(map[string]utils.DnsRecord)
+	metadataRecsCached = make(map[string]utils.MetadataDnsRecord)
 )
 
 func setEnv() {
@@ -138,16 +138,20 @@ func main() {
 			// querying the provider records.
 			if updateForced || !reflect.DeepEqual(metadataRecs, metadataRecsCached) {
 				// update the provider
-				updated, err := UpdateProviderDnsRecords(metadataRecs)
+				updatedRecords, err := UpdateProviderDnsRecords(metadataRecs)
 				if err != nil {
 					logrus.Errorf("Failed to update provider with new DNS records: %v", err)
 					goto sleep
 				}
 
 				// update the service FQDN in Cattle
-				for _, toUpdate := range updated {
-					serviceDnsRecord := utils.ConvertToServiceDnsRecord(toUpdate)
-					c.UpdateServiceDomainName(serviceDnsRecord)
+				for _, mRec := range updatedRecords {
+					if mRec.ServiceName != "" && mRec.StackName != "" {
+						logrus.Debugf("Updating cattle service FQDN for %s/%s", mRec.ServiceName, mRec.StackName)
+						if err := c.UpdateServiceDomainName(mRec); err != nil {
+							logrus.Errorf("Failed to update cattle service FQDN: %v", err)
+						}
+					}
 				}
 
 				metadataRecsCached = metadataRecs
