@@ -176,7 +176,7 @@ func (g *GandiProvider) findRecords(record utils.DnsRecord, version int64) ([]ga
 func (g *GandiProvider) GetRecords() ([]utils.DnsRecord, error) {
 	var records []utils.DnsRecord
 
-	recordResp, err := g.record.List(g.zone.Id, g.zone.Version)
+	recordResp, err := g.record.List(g.zone.Id, 0)
 	if err != nil {
 		return records, fmt.Errorf("Failed to get records in zone: %v", err)
 	}
