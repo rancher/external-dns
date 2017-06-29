@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/rancher/external-dns/utils"
+	"github.com/Jorcooly/external-dns/utils"
 	rancher "github.com/rancher/go-rancher/v2"
 )
 
