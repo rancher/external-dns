@@ -13,8 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	awsRoute53 "github.com/aws/aws-sdk-go/service/route53"
 	"github.com/juju/ratelimit"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/Jorcooly/external-dns/providers"
+	"github.com/Jorcooly/external-dns/utils"
 )
 
 var (

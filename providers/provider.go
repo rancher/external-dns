@@ -3,7 +3,7 @@ package providers
 import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/utils"
+	"github.com/Jorcooly/external-dns/utils"
 )
 
 type Provider interface {
