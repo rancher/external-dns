@@ -8,9 +8,9 @@ import (
 	"regexp"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/config"
-	"github.com/rancher/external-dns/utils"
-	"github.com/rancher/go-rancher-metadata/metadata"
+	"github.com/Jorcooly/external-dns/config"
+	"github.com/Jorcooly/external-dns/utils"
+	"github.com/Jorcooly/go-rancher-metadata/metadata"
 )
 
 const (
