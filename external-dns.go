@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/Jorcooly/external-dns/config"
-	"github.com/Jorcooly/external-dns/utils"
+	"github.com/rancher/external-dns/config"
+	"github.com/rancher/external-dns/utils"
 )
 
 func UpdateProviderDnsRecords(metadataRecs map[string]utils.MetadataDnsRecord) ([]utils.MetadataDnsRecord, error) {

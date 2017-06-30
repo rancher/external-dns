@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/Jorcooly/external-dns/utils"
+	"github.com/rancher/external-dns/utils"
 )
 
 const (

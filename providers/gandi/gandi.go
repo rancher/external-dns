@@ -12,8 +12,8 @@ import (
 	gandiRecord "github.com/prasmussen/gandi-api/domain/zone/record"
 	gandiZoneVersion "github.com/prasmussen/gandi-api/domain/zone/version"
 	gandiOperation "github.com/prasmussen/gandi-api/operation"
-	"github.com/Jorcooly/external-dns/providers"
-	"github.com/Jorcooly/external-dns/utils"
+	"github.com/rancher/external-dns/providers"
+	"github.com/rancher/external-dns/utils"
 )
 
 type GandiProvider struct {

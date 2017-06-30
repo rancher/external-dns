@@ -9,8 +9,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
-	"github.com/Jorcooly/external-dns/providers"
-	"github.com/Jorcooly/external-dns/utils"
+	"github.com/rancher/external-dns/providers"
+	"github.com/rancher/external-dns/utils"
 )
 
 type RFC2136Provider struct {

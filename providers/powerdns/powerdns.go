@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/Jorcooly/external-dns/providers"
-	"github.com/Jorcooly/external-dns/utils"
+	"github.com/rancher/external-dns/providers"
+	"github.com/rancher/external-dns/utils"
 	"github.com/waynz0r/go-powerdns"
 )
 
