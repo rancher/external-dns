@@ -9,8 +9,8 @@ SUFFIX=""
 
 cd $(dirname $0)/../package
 
-TAG="latest"
-REPO=panamax.spectrumxg.com/star-dev
+TAG=${TAG:-${VERSION}${SUFFIX}}
+REPO=${REPO:-rancher}
 
 cp ../bin/external-dns .
 

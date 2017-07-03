@@ -157,53 +157,90 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 			addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
 			ourFqdns[fqdn] = struct{}{}
 		}
-
 		//LITERALLY CHECK ALL OF THIS FOR PSEUDO CODE I SWEAR TO FUCKING GOD JUSTIN
 
 		//Checks specifically for load balancers to correctly route requested hostnames
 		//to the proper places.
 		if service.Kind == "loadBalancerService" {
 			for _, portRule := range service.LBConfig.PortRules{
-				fqdn := ""
-				hostName := portRule.Hostname 
-				nameTemplate, ok := service.Labels["io.rancher.service.external_dns_name_template"]
-				if !ok {
-					nameTemplate = config.NameTemplate
-				}
-				//Checks regex to see if there is a wildcard at the end of the requested hostname
-				//EX: host.*
-				//If there is, append our root domain name to it and add a . to make it fqdn
-				if matched, err := regexp.MatchString("\\.\\*$", hostName); matched{
-					hostName = strings.TrimRight(hostName, "\\*")
-					hostName = strings.TrimRight(hostName, "\\.")
-					fqdn := hostName + config.RootDomainName + "."
-					//we want to add these entries as CNAME entries, so instead of passing an IP we pass the 
-					//target A entry, which should be the services fqdn
-					addToDnsEntries(fqdn, service.Fqdn, service.Name, service.StackName, dnsEntries, "CNAME")
-					continue
-				}else if err != nil{
-					continue
-				}
-				//Checks to see if there is a full domain name already matching the root domain name
-				//If there is, we just want to register it to dns
-				//If not, we still need to append our root domain name and probably all the other stuff
-				if matched, err := regexp.MatchString("\\S$", hostName); matched{
-					hostName = strings.TrimRight(hostName, "\\.")
-					rootDomainMatch := config.RootDomainName + "$"
-					if matched, err := regexp.MatchString(rootDomainMatch, hostName); matched{
-						fqdn = hostName + "."
-						addToDnsEntries(fqdn, service.Fqdn, service.Name, service.StackName, dnsEntries, "CNAME")
+				for _, container := range service.Containers {
+					fqdn := ""
+					hostName := portRule.Hostname 
+					nameTemplate, ok := service.Labels["io.rancher.service.external_dns_name_template"]
+					if !ok {
+						nameTemplate = config.NameTemplate
+					}
+
+					hostUUID := container.HostUUID
+					if len(hostUUID) == 0 {
+						logrus.Debugf("Container's %v host_uuid is empty", container.Name)
+						continue
+					}
+
+					var host metadata.Host
+					if _, ok := hostMeta[hostUUID]; ok {
+						host = hostMeta[hostUUID]
+					} else {
+						host, err = m.MetadataClient.GetHost(hostUUID)
+						if err != nil {
+							logrus.Warnf("Failed to get host metadata: %v", err)
+							continue
+						}
+						hostMeta[hostUUID] = host
+					}
+
+					var externalIP string
+					if ip, ok := host.Labels["io.rancher.host.external_dns_ip"]; ok && len(ip) > 0 {
+						externalIP = ip
+					} else if len(container.Ports) > 0 {
+						if ip, ok := parsePortToIP(container.Ports[0]); ok {
+							externalIP = ip
+						}
+					}
+
+					// fallback to host agent IP
+					if len(externalIP) == 0 {
+						logrus.Debugf("Fallback to host.AgentIP %s for container %s", host.AgentIP, container.Name)
+						externalIP = host.AgentIP
+					}
+					//Checks regex to see if there is a wildcard at the end of the requested hostname
+					//EX: host.*
+					//If there is, append our root domain name to it and add a . to make it Fqdn
+					if matched, err := regexp.MatchString("\\.\\*$", hostName); matched{
+						hostName = strings.TrimRight(hostName, "\\*")
+						hostName = strings.TrimRight(hostName, "\\.")
+						fqdn := hostName + "." + config.RootDomainName
+						//we want to add these entries as CNAME entries, so instead of passing an IP we pass the 
+						//target A entry, which should be the services fqdn
+						addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
+						ourFqdns[fqdn] = struct{}{}
+						continue
+					}else if err != nil{
+						continue
+					}
+					//Checks to see if there is a full domain name already matching the root domain name
+					//If there is, we just want to register it to dns
+					//If not, we still need to append our root domain name and probably all the other stuff
+					if matched, err := regexp.MatchString("\\S$", hostName); matched{
+						hostName = strings.TrimRight(hostName, "\\.")
+						rootDomainMatch := config.RootDomainName + "$"
+						if matched, err := regexp.MatchString(rootDomainMatch, hostName); matched{
+							fqdn = hostName + "\\."
+							addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
+							ourFqdns[fqdn] = struct{}{}
+						}else if err != nil{
+							//logrus.Warnf(err)
+							continue
+						}else{
+							fqdn := utils.FqdnFromTemplate(nameTemplate, hostName, service.StackName,
+								m.EnvironmentName, config.RootDomainName)
+							addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
+							ourFqdns[fqdn] = struct{}{}
+						}
 					}else if err != nil{
 						//logrus.Warnf(err)
 						continue
-					}else{
-						fqdn := utils.FqdnFromTemplate(nameTemplate, hostName, service.StackName,
-							m.EnvironmentName, config.RootDomainName)
-						addToDnsEntries(fqdn, service.Fqdn, service.Name, service.StackName, dnsEntries, "CNAME")
 					}
-				}else if err != nil{
-					//logrus.Warnf(err)
-					continue
 				}
 			}
 		}
@@ -236,12 +273,19 @@ func addToDnsEntries(fqdn, ip, service, stack string, dnsEntries map[string]util
 		}
 		records = append(records, ip)
 	}
-
-	dnsEntries[fqdn] = utils.MetadataDnsRecord{
-		ServiceName: service,
-		StackName:   stack,
-		DnsRecord:   utils.DnsRecord{fqdn, records, entryType, config.TTL},
-	}
+	if entryType == "A"{
+		dnsEntries[fqdn] = utils.MetadataDnsRecord{
+			ServiceName: service,
+			StackName:   stack,
+			DnsRecord:   utils.DnsRecord{fqdn, records, entryType, config.TTL},
+		}
+	} /*else if entryType == "CNAME" {
+		dnsEntries[fqdn] = utils.MetadataDnsRecord{
+			ServiceName: service,
+			StackName:   stack,
+			DnsRecord:   utils.DnsRecord{fqdn, records, entryType, nil},
+		}
+	}*/
 }
 
 func containerStateOK(container metadata.Container) bool {
