@@ -12,3 +12,4 @@ COPY rancher-entrypoint.sh /usr/bin/
 COPY external-dns /usr/bin/
 
 ENTRYPOINT ["/usr/bin/rancher-entrypoint.sh"]
+CMD [""]
