@@ -157,8 +157,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 			addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
 			ourFqdns[fqdn] = struct{}{}
 		}
-		//LITERALLY CHECK ALL OF THIS FOR PSEUDO CODE I SWEAR TO FUCKING GOD JUSTIN
-
+		
 		//Checks specifically for load balancers to correctly route requested hostnames
 		//to the proper places.
 		if service.Kind == "loadBalancerService" {
@@ -216,6 +215,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 						ourFqdns[fqdn] = struct{}{}
 						continue
 					}else if err != nil{
+						logrus.Warnf("Regex matching error: %v", err)
 						continue
 					}
 					//Checks to see if there is a full domain name already matching the root domain name
@@ -229,7 +229,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 							addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
 							ourFqdns[fqdn] = struct{}{}
 						}else if err != nil{
-							//logrus.Warnf(err)
+							logrus.Warnf("Regex matching error: %v", err)
 							continue
 						}else{
 							fqdn := utils.FqdnFromTemplate(nameTemplate, hostName, service.StackName,
@@ -238,7 +238,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 							ourFqdns[fqdn] = struct{}{}
 						}
 					}else if err != nil{
-						//logrus.Warnf(err)
+						logrus.Warnf("Regex matching error: %v", err)
 						continue
 					}
 				}
