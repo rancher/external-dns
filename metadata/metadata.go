@@ -165,6 +165,8 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 				for _, container := range service.Containers {
 					fqdn := ""
 					hostName := portRule.Hostname 
+					hostName = strings.Replace(hostName, "-", "\\.", -1)
+
 					nameTemplate, ok := service.Labels["io.rancher.service.external_dns_name_template"]
 					if !ok {
 						nameTemplate = config.NameTemplate
