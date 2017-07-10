@@ -197,7 +197,6 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 						}
 					}
 
-					// fallback to host agent IP
 					if len(externalIP) == 0 {
 						logrus.Debugf("Fallback to host.AgentIP %s for container %s", host.AgentIP, container.Name)
 						externalIP = host.AgentIP
@@ -209,19 +208,13 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 						hostName = strings.TrimRight(hostName, "\\*")
 						hostName = strings.TrimRight(hostName, "\\.")
 						fqdn := hostName + "." + config.RootDomainName
-						//we want to add these entries as CNAME entries, so instead of passing an IP we pass the 
-						//target A entry, which should be the services fqdn
 						addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
 						ourFqdns[fqdn] = struct{}{}
 						continue
-					}else if err != nil{
-						logrus.Warnf("Regex matching error: %v", err)
-						continue
-					}
 					//Checks to see if there is a full domain name already matching the root domain name
 					//If there is, we just want to register it to dns
 					//If not, we still need to append our root domain name and probably all the other stuff
-					if matched, err := regexp.MatchString("\\S$", hostName); matched{
+					}else if matched, err := regexp.MatchString("\\S$", hostName); matched{
 						hostName = strings.TrimRight(hostName, "\\.")
 						rootDomainMatch := config.RootDomainName + "$"
 						if matched, err := regexp.MatchString(rootDomainMatch, hostName); matched{
