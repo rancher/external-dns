@@ -165,9 +165,6 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 				for _, container := range service.Containers {
 					fqdn := ""
 					hostName := portRule.Hostname 
-					hostName = strings.Replace(hostName, "-", "\\.", -1)
-
-					logrus.Debugf(hostName)
 
 					nameTemplate, ok := service.Labels["io.rancher.service.external_dns_name_template"]
 					if !ok {
@@ -214,32 +211,17 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 						fqdn := hostName + "." + config.RootDomainName
 						addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
 						ourFqdns[fqdn] = struct{}{}
-						continue
 					}else if err != nil{
 						logrus.Warnf("Regex matching error: %v", err)
-						continue
 					//Checks to see if there is a full domain name already matching the root domain name
 					//If there is, we just want to register it to dns
 					//If not, we still need to append our root domain name and probably all the other stuff
-					} else if matched, err := regexp.MatchString("\\S$", hostName); matched{
-						hostName = strings.TrimRight(hostName, "\\.")
-						rootDomainMatch := config.RootDomainName + "$"
-						if matched, err := regexp.MatchString(rootDomainMatch, hostName); matched{
-							fqdn = hostName + "\\."
-							addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
-							ourFqdns[fqdn] = struct{}{}
-						}else if err != nil{
-							logrus.Warnf("Regex matching error: %v", err)
-							continue
-						}else{
-							fqdn := utils.FqdnFromTemplate(nameTemplate, hostName, service.StackName,
-								m.EnvironmentName, config.RootDomainName)
-							addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
-							ourFqdns[fqdn] = struct{}{}
+					} else {
+						fqdn := utils.FqdnFromTemplate(nameTemplate, hostName, service.StackName,
+							m.EnvironmentName, config.RootDomainName)
+						addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
+						ourFqdns[fqdn] = struct{}{}
 						}
-					}else if err != nil{
-						logrus.Warnf("Regex matching error: %v", err)
-						continue
 					}
 				}
 			}
