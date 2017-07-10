@@ -221,7 +221,6 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 							m.EnvironmentName, config.RootDomainName)
 						addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
 						ourFqdns[fqdn] = struct{}{}
-						}
 					}
 				}
 			}
