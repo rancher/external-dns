@@ -163,7 +163,6 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 		if service.Kind == "loadBalancerService" {
 			for _, portRule := range service.LBConfig.PortRules{
 				for _, container := range service.Containers {
-					fqdn := ""
 					hostName := portRule.Hostname 
 
 					nameTemplate, ok := service.Labels["io.rancher.service.external_dns_name_template"]
@@ -213,7 +212,6 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 						ourFqdns[fqdn] = struct{}{}
 					}else if err != nil{
 						logrus.Warnf("Regex matching error: %v", err)
-						continue
 					//Checks to see if there is a full domain name already matching the root domain name
 					//If there is, we just want to register it to dns
 					//If not, we still need to append our root domain name and probably all the other stuff
