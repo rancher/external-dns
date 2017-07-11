@@ -213,6 +213,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 						logrus.Warnf("Regex matching error: %v", err)
 					//Appends domain name to requested hostname, substituting - for .
 					} else {
+						hostName = strings.TrimRight(hostName, "\\.")
 						fqdn := utils.FqdnFromTemplate(nameTemplate, hostName, service.StackName,
 							m.EnvironmentName, config.RootDomainName)
 						addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
