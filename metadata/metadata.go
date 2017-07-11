@@ -211,9 +211,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 						ourFqdns[fqdn] = struct{}{}
 					}else if err != nil{
 						logrus.Warnf("Regex matching error: %v", err)
-					//Checks to see if there is a full domain name already matching the root domain name
-					//If there is, we just want to register it to dns
-					//If not, we still need to append our root domain name and probably all the other stuff
+					//Appends domain name to requested hostname, substituting - for .
 					} else {
 						fqdn := utils.FqdnFromTemplate(nameTemplate, hostName, service.StackName,
 							m.EnvironmentName, config.RootDomainName)
