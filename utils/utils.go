@@ -2,11 +2,11 @@ package utils
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 	"sort"
 	"strings"
+	"github.com/Sirupsen/logrus"
 )
 
 const (

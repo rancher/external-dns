@@ -43,6 +43,11 @@ func (p *PublicDnsProvider) Init() error {
 		return fmt.Errorf("Could not read credentials from disk: %v", err)
 	}
 
+	var installUUID string
+	if installUUID, err = getInstallUUID(); err != nil {
+		return err
+	}
+
 	if authToken == "" || domain == "" {
 		logrus.Info("Initializing provider with service token")
 		// get service token from metadata
@@ -53,7 +58,7 @@ func (p *PublicDnsProvider) Init() error {
 
 		// get auth token and domain from rancher public dns service
 		logrus.Debugf("Querying credentials using service token: %s", publicDnsURL, serviceToken)
-		p.dnsClient = newPublicDNSClient(publicDnsURL, serviceToken)
+		p.dnsClient = newPublicDNSClient(publicDnsURL, serviceToken, installUUID)
 		if err = p.getAuthTokenAndRootDomain(); err != nil {
 			return fmt.Errorf("Failed to query auth token and root domain: %v", err)
 		}
@@ -63,14 +68,14 @@ func (p *PublicDnsProvider) Init() error {
 		}
 
 		// re-initialize client with the auth token
-		p.dnsClient = newPublicDNSClient(publicDnsURL, p.authToken)
+		p.dnsClient = newPublicDNSClient(publicDnsURL, p.authToken, installUUID)
 
 	} else {
 		logrus.Info("Initializing provider with credentials from disk")
 		logrus.Debugf("authToken '%s' rootDomain '%s'", authToken, domain)
 		p.authToken = authToken
 		p.rootDomain = domain
-		p.dnsClient = newPublicDNSClient(publicDnsURL, p.authToken)
+		p.dnsClient = newPublicDNSClient(publicDnsURL, p.authToken, installUUID)
 		// test auth token
 		if err = p.getAuthTokenAndRootDomain(); err != nil {
 			return fmt.Errorf("Failed to query auth token and root domain: %v", err)
@@ -197,10 +202,11 @@ func (p *PublicDnsProvider) getAuthTokenAndRootDomain() error {
 // Private functions
 //
 
-func newPublicDNSClient(url string, authToken string) *rancherPublicDNS.RancherClient {
+func newPublicDNSClient(url string, authToken string, installUUID string) *rancherPublicDNS.RancherClient {
 	dnsClient, err := rancherPublicDNS.NewRancherClient(&rancherPublicDNS.ClientOpts{
 		Url:             url,
 		CustomAuthToken: "Bearer " + authToken,
+		InstallUUID:     installUUID,
 	})
 
 	if err != nil {
@@ -223,6 +229,21 @@ func getServiceToken() (string, error) {
 	}
 
 	return token, nil
+}
+
+func getInstallUUID() (string, error) {
+	var installUUID string
+	m, err := metadata.NewMetadataClient()
+	if err != nil {
+		return "", fmt.Errorf("Failed to configure metadata client: %v", err)
+	}
+
+	installUUID, err = m.GetInstallUUID()
+	if err != nil {
+		return "", fmt.Errorf("Failed to get installUUID from metadata: %v", err)
+	}
+
+	return installUUID, nil
 }
 
 func loadCredentialsFromDisk() (string, string, error) {

@@ -35,6 +35,7 @@ type ClientOpts struct {
 	SecretKey       string
 	Timeout         time.Duration
 	CustomAuthToken string
+	InstallUUID     string
 }
 
 type ApiError struct {
@@ -232,6 +233,10 @@ func (rancherClient *RancherBaseClientImpl) setupRequest(req *http.Request) {
 		req.SetBasicAuth(rancherClient.Opts.AccessKey, rancherClient.Opts.SecretKey)
 	} else if rancherClient.Opts.CustomAuthToken != "" {
 		req.Header.Add("Authorization", rancherClient.Opts.CustomAuthToken)
+	}
+
+	if rancherClient.Opts.InstallUUID != "" {
+		req.Header.Add("X-Install-Uuid", rancherClient.Opts.InstallUUID)
 	}
 }
 

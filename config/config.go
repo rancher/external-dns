@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/rancher/external-dns/utils"
 )
 
 var (
@@ -21,7 +22,6 @@ func SetFromEnvironment() {
 	CattleURL = getEnv("CATTLE_URL")
 	CattleAccessKey = getEnv("CATTLE_ACCESS_KEY")
 	CattleSecretKey = getEnv("CATTLE_SECRET_KEY")
-	RootDomainName = utils.Fqdn(getEnv("ROOT_DOMAIN"))
 	FqdnGeneratorName = os.Getenv("FQDN_GENERATOR_NAME")
 	if len(FqdnGeneratorName) == 0 {
 		FqdnGeneratorName = "DefaultFQDNGenerator"

@@ -69,6 +69,15 @@ func (m *MetadataClient) GetServiceToken() (string, error) {
 	return service.Token, nil
 }
 
+func (m *MetadataClient) GetInstallUUID() (string, error) {
+	installUUID, err := m.MetadataClient.GetInstallUUID()
+	if err != nil {
+		return "", err
+	}
+
+	return installUUID, nil
+}
+
 func (m *MetadataClient) GetMetadataDnsRecords() (map[string]utils.MetadataDnsRecord, error) {
 	dnsEntries := make(map[string]utils.MetadataDnsRecord)
 	ourFqdns := make(map[string]struct{})
