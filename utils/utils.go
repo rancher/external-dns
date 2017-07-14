@@ -18,6 +18,7 @@ type MetadataDnsRecord struct {
 	ServiceName string
 	StackName   string
 	DnsRecord   DnsRecord
+	IsContainer bool
 }
 
 // DnsRecord represents a provider DNS record

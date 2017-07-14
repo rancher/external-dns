@@ -27,11 +27,16 @@ func NewCattleClient(cattleUrl string, accessKey string, secretKey string) (*Cat
 
 func (c *CattleClient) UpdateServiceDomainName(metadataRecord utils.MetadataDnsRecord) error {
 	event := &rancher.ExternalDnsEvent{
-		EventType:   "dns.update",
-		ExternalId:  metadataRecord.DnsRecord.Fqdn,
-		ServiceName: metadataRecord.ServiceName,
-		StackName:   metadataRecord.StackName,
-		Fqdn:        utils.UnFqdn(metadataRecord.DnsRecord.Fqdn),
+		EventType:  "dns.update",
+		ExternalId: metadataRecord.DnsRecord.Fqdn,
+		StackName:  metadataRecord.StackName,
+		Fqdn:       utils.UnFqdn(metadataRecord.DnsRecord.Fqdn),
+	}
+
+	if metadataRecord.IsContainer {
+		event.ContainerName = metadataRecord.ServiceName
+	} else {
+		event.ServiceName = metadataRecord.ServiceName
 	}
 	_, err := c.rancherClient.ExternalDnsEvent.Create(event)
 	return err

@@ -84,6 +84,7 @@ func (m *MetadataClient) GetMetadataDnsRecords() (map[string]utils.MetadataDnsRe
 			ServiceName: "",
 			StackName:   "",
 			DnsRecord:   stateRec,
+			IsContainer: false,
 		}
 	}
 	return dnsEntries, nil
@@ -120,7 +121,7 @@ func (m *MetadataClient) getSvcContainersDnsRecords(dnsEntries map[string]utils.
 		for _, container := range service.Containers {
 			fqdn, externalIP := m.getContainerFQDN(container, policy, hostMeta, nameTemplate)
 			if len(fqdn) != 0 && len(externalIP) != 0 {
-				addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries)
+				addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, false, dnsEntries)
 				ourFqdns[fqdn] = struct{}{}
 			}
 		}
@@ -159,7 +160,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 		fqdn, externalIP := m.getContainerFQDN(container, policy, hostMeta, nameTemplate)
 
 		if len(fqdn) != 0 && len(externalIP) != 0 {
-			addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries)
+			addToDnsEntries(fqdn, externalIP, container.Name, container.StackName, true, dnsEntries)
 			ourFqdns[fqdn] = struct{}{}
 		}
 	}
@@ -227,7 +228,7 @@ func (m *MetadataClient) getContainerFQDN(container metadata.Container, policy s
 	return fqdn, externalIP
 }
 
-func addToDnsEntries(fqdn, ip, service, stack string, dnsEntries map[string]utils.MetadataDnsRecord) {
+func addToDnsEntries(fqdn, ip, service, stack string, isContainer bool, dnsEntries map[string]utils.MetadataDnsRecord) {
 	var records []string
 	if _, ok := dnsEntries[fqdn]; !ok {
 		records = []string{ip}
@@ -246,6 +247,7 @@ func addToDnsEntries(fqdn, ip, service, stack string, dnsEntries map[string]util
 		ServiceName: service,
 		StackName:   stack,
 		DnsRecord:   utils.DnsRecord{fqdn, records, "A", config.TTL},
+		IsContainer: isContainer,
 	}
 }
 
