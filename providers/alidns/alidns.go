@@ -59,8 +59,8 @@ func (a *AlidnsProvider) HealthCheck() error {
 
 func (a *AlidnsProvider) AddRecord(record utils.DnsRecord) error {
 	for _, rec := range record.Records {
-		r := a.prepareRecord(record, rec)
-		_, err := a.client.AddDomainRecord(r)
+    r := a.prepareRecord(record, rec)
+    _, err := a.client.AddDomainRecord(r)
 		if err != nil {
 			return fmt.Errorf("Alibaba Cloud API call has failed: %v", err)
 		}
@@ -86,7 +86,7 @@ func (a *AlidnsProvider) RemoveRecord(record utils.DnsRecord) error {
 	for _, rec := range records {
 		_, err := a.client.DeleteDomainRecord(&api.DeleteDomainRecordArgs{
 			RecordId: rec.RecordId,
-		})
+    })
 		if err != nil {
 			return fmt.Errorf("Alibaba Cloud API call has failed: %v", err)
 		}
@@ -159,8 +159,8 @@ func (a *AlidnsProvider) prepareRecord(record utils.DnsRecord, rec string) *api.
 	}
 }
 
-func (a *AlidnsProvider) findRecords(record utils.DnsRecord) ([]*api.RecordType, error) {
-	var records []*api.RecordType
+func (a *AlidnsProvider) findRecords(record utils.DnsRecord) ([]api.RecordType, error) {
+	var records []api.RecordType
 	result, err := a.client.DescribeDomainRecords(&api.DescribeDomainRecordsArgs{
 		DomainName: a.rootDomainName,
 	})
@@ -171,7 +171,7 @@ func (a *AlidnsProvider) findRecords(record utils.DnsRecord) ([]*api.RecordType,
   name := a.parseName(record)
 	for _, rec := range result.DomainRecords.Record {
 		if rec.RR == name && rec.Type == record.Type {
-			records = append(records, &rec)
+			records = append(records, rec)
 		}
 	}
 
