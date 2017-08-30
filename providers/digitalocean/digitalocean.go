@@ -10,9 +10,9 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/juju/ratelimit"
-	"github.com/rancher/external-dns/config"
 	"github.com/rancher/external-dns/providers"
 	"github.com/rancher/external-dns/utils"
+	"context"
 )
 
 type DigitalOceanProvider struct {
@@ -57,20 +57,20 @@ func (p *DigitalOceanProvider) Init(rootDomainName string) error {
 
 	// Retrieve email address associated with this PAT.
 	p.limiter.Wait(1)
-	acct, _, err := p.client.Account.Get()
+	acct, _, err := p.client.Account.Get(context.TODO())
 	if err != nil {
 		return err
 	}
 
 	// Now confirm that domain is accessible under this PAT.
 	p.limiter.Wait(1)
-	domains, _, err := p.client.Domains.Get(p.rootDomainName)
+	domains, _, err := p.client.Domains.Get(context.TODO(), p.rootDomainName)
 	if err != nil {
 		return err
 	}
 
 	// DO's TTLs are domain-wide.
-	config.TTL = domains.TTL
+	// config.TTL = domains.TTL
 	logrus.Infof("Configured %s with email %s and domain %s", p.GetName(), acct.Email, domains.Name)
 	return nil
 }
@@ -81,7 +81,7 @@ func (p *DigitalOceanProvider) GetName() string {
 
 func (p *DigitalOceanProvider) HealthCheck() error {
 	p.limiter.Wait(1)
-	_, _, err := p.client.Domains.Get(p.rootDomainName)
+	_, _, err := p.client.Domains.Get(context.TODO(), p.rootDomainName)
 	return err
 }
 
@@ -95,7 +95,7 @@ func (p *DigitalOceanProvider) AddRecord(record utils.DnsRecord) error {
 
 		logrus.Debugf("Creating record: %v", createRequest)
 		p.limiter.Wait(1)
-		_, _, err := p.client.Domains.CreateRecord(p.rootDomainName, createRequest)
+		_, _, err := p.client.Domains.CreateRecord(context.TODO(), p.rootDomainName, createRequest)
 		if err != nil {
 			return fmt.Errorf("API call has failed: %v", err)
 		}
@@ -125,7 +125,7 @@ func (p *DigitalOceanProvider) RemoveRecord(record utils.DnsRecord) error {
 		if fqdn == record.Fqdn && rec.Type == record.Type {
 			p.limiter.Wait(1)
 			logrus.Debugf("Deleting record: %v", rec)
-			_, err := p.client.Domains.DeleteRecord(p.rootDomainName, rec.ID)
+			_, err := p.client.Domains.DeleteRecord(context.TODO(), p.rootDomainName, rec.ID)
 			if err != nil {
 				return fmt.Errorf("API call has failed: %v", err)
 			}
@@ -137,7 +137,7 @@ func (p *DigitalOceanProvider) RemoveRecord(record utils.DnsRecord) error {
 
 func (p *DigitalOceanProvider) GetRecords() ([]utils.DnsRecord, error) {
 	dnsRecords := []utils.DnsRecord{}
-	recordMap := map[string]map[string][]string{}
+	recordMap := map[string]map[string]utils.DnsRecord{}
 	doRecords, err := p.fetchDoRecords()
 	if err != nil {
 		return nil, fmt.Errorf("GetRecords: %v", err)
@@ -149,21 +149,19 @@ func (p *DigitalOceanProvider) GetRecords() ([]utils.DnsRecord, error) {
 		if exists {
 			recordSlice, sliceExists := recordSet[rec.Type]
 			if sliceExists {
-				recordSlice = append(recordSlice, rec.Data)
+				recordSlice.Records = append(recordSet[rec.Type].Records, rec.Data)
 				recordSet[rec.Type] = recordSlice
 			} else {
-				recordSet[rec.Type] = []string{rec.Data}
+				recordSet[rec.Type] = utils.DnsRecord{Fqdn: fqdn, Records: []string{rec.Data}, Type: rec.Type, TTL: rec.TTL}
 			}
 		} else {
-			recordMap[fqdn] = map[string][]string{}
-			recordMap[fqdn][rec.Type] = []string{rec.Data}
+			recordMap[fqdn] = map[string]utils.DnsRecord{}
+			recordMap[fqdn][rec.Type] = utils.DnsRecord{Fqdn: fqdn, Records: []string{rec.Data}, Type: rec.Type, TTL: rec.TTL}
 		}
 	}
 
-	for fqdn, recordSet := range recordMap {
-		for recordType, recordSlice := range recordSet {
-			// DigitalOcean does not have per-record TTLs.
-			dnsRecord := utils.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: config.TTL}
+	for _, recordSet := range recordMap {
+		for _, dnsRecord := range recordSet {
 			dnsRecords = append(dnsRecords, dnsRecord)
 		}
 	}
@@ -180,7 +178,7 @@ func (p *DigitalOceanProvider) fetchDoRecords() ([]api.DomainRecord, error) {
 	}
 	for {
 		p.limiter.Wait(1)
-		records, resp, err := p.client.Domains.Records(p.rootDomainName, opt)
+		records, resp, err := p.client.Domains.Records(context.TODO(), p.rootDomainName, opt)
 		if err != nil {
 			return nil, fmt.Errorf("API call has failed: %v", err)
 		}
