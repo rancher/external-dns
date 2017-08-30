@@ -90,6 +90,7 @@ func (p *DigitalOceanProvider) AddRecord(record utils.DnsRecord) error {
 		createRequest := &api.DomainRecordEditRequest{
 			Type: record.Type,
 			Name: record.Fqdn,
+			TTL: record.TTL,
 			Data: r,
 		}
 
