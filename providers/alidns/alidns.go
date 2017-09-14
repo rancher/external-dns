@@ -3,7 +3,6 @@ package alidns
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
@@ -94,7 +93,7 @@ func (a *AlidnsProvider) RemoveRecord(record utils.DnsRecord) error {
 
 func (a *AlidnsProvider) GetRecords() ([]utils.DnsRecord, error) {
 	var records []utils.DnsRecord
-	result, err := a.client.DescribeDomainRecordsNew(&api.DescribeDomainRecordsNewArgs{
+	result, err := a.client.DescribeDomainRecords(&api.DescribeDomainRecordsArgs{
 		DomainName: a.rootDomainName,
 	})
 	if err != nil {
@@ -113,10 +112,7 @@ func (a *AlidnsProvider) GetRecords() ([]utils.DnsRecord, error) {
 		}
 
 		recordTTLs[fqdn] = map[string]int{}
-		if recordTTLs[fqdn][rec.Type], err = strconv.Atoi(rec.TTL); err != nil {
-			return records, fmt.Errorf("Failed to convert TTL from '%s' to int: %v", rec.TTL, err)
-		}
-
+		recordTTLs[fqdn][rec.Type] = int(rec.TTL)
 		recordSet, exists := recordMap[fqdn]
 		if exists {
 			recordSlice, sliceExists := recordSet[rec.Type]
@@ -157,9 +153,9 @@ func (a *AlidnsProvider) prepareRecord(record utils.DnsRecord, rec string) *api.
 	}
 }
 
-func (a *AlidnsProvider) findRecords(record utils.DnsRecord) ([]api.RecordTypeNew, error) {
-	var records []api.RecordTypeNew
-	result, err := a.client.DescribeDomainRecordsNew(&api.DescribeDomainRecordsNewArgs{
+func (a *AlidnsProvider) findRecords(record utils.DnsRecord) ([]api.RecordType, error) {
+	var records []api.RecordType
+	result, err := a.client.DescribeDomainRecords(&api.DescribeDomainRecordsArgs{
 		DomainName: a.rootDomainName,
 	})
 	if err != nil {
