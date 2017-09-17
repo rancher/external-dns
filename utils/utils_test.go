@@ -66,6 +66,22 @@ var fqdnTemplateData = []struct {
 		rootDomainName: "example.com",
 		expected: ".example.com",
 	},
+	{
+		template: "%{{stack_name}}.%{{service_name}}",
+		serviceName: "service1",
+		stackName: "mystack",
+		environmentName: "default",
+		rootDomainName: "example.com",
+		expected: "mystack.service1.example.com",
+	},
+	{
+		template: "%{{environment_name}}.%{{stack_name}}.%{{service_name}}",
+		serviceName: "service1",
+		stackName: "mystack",
+		environmentName: "default",
+		rootDomainName: "example.com",
+		expected: "default.mystack.service1.example.com",
+	},
 }
 
 func TestFqdn(t *testing.T) {
