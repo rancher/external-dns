@@ -4,6 +4,14 @@ import (
 	"testing"
 )
 
+type MockDnsEntry struct {
+	data string
+}
+
+/*
+ * --- Test Data ---
+ */
+
 var fqdnTestData = []struct {
 	input string
 	expected string
@@ -84,6 +92,47 @@ var fqdnTemplateData = []struct {
 	},
 }
 
+var stateFqdnData = []struct {
+	envUUID string
+	rootDomainName string
+	expected string
+}{
+	{
+		envUUID: "A0A0AA00-AA0A-0A0A-AA00-000000AAA0A0",
+		rootDomainName: "example.com",
+		expected: "external-dns-a0a0aa00-aa0a-0a0a-aa00-000000aaa0a0.example.com",
+	},
+	{
+		envUUID: "",
+		rootDomainName: "example.com",
+		expected: "external-dns-.example.com",
+	},
+}
+
+// fqdn string, ttl int, entries map[string]struct{}) DnsRecord
+
+var stateRecordData = []struct {
+	fqdn string
+	ttl int
+	entries map[string]struct{}
+	expected DnsRecord
+}{
+	{
+		"example.com",
+		300,
+		map[string]struct{}{
+			"example.com": {},
+			"foo.example.com": {},
+		},
+		DnsRecord{},
+	},
+}
+
+
+/*
+ * --- Tests ---
+ */
+
 func TestFqdn(t *testing.T) {
 	for _, asset := range fqdnTestData {
 		if result:= Fqdn(asset.input); result != asset.expected {
@@ -112,3 +161,13 @@ func TestFqdnFromTemplate(t *testing.T) {
 		}
 	}
 }
+
+func TestStateFqdn(t *testing.T) {
+	for _, asset := range stateFqdnData {
+		if result:= StateFqdn(asset.envUUID, asset.rootDomainName); result != asset.expected {
+			t.Errorf("\nExpected: \n[%s], \ngot: \n[%s]", asset.expected, result)
+		}
+	}
+}
+
+// StateRecord(fqdn string, ttl int, entries map[string]struct{}) DnsRecord
