@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash -e
 
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
     DIRTY="-dirty"
