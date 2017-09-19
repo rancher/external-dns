@@ -2,6 +2,7 @@ package utils
 
 import (
 	"testing"
+	"reflect"
 )
 
 type MockDnsEntry struct {
@@ -109,8 +110,6 @@ var stateFqdnData = []struct {
 	},
 }
 
-// fqdn string, ttl int, entries map[string]struct{}) DnsRecord
-
 var stateRecordData = []struct {
 	fqdn string
 	ttl int
@@ -122,9 +121,49 @@ var stateRecordData = []struct {
 		300,
 		map[string]struct{}{
 			"example.com": {},
-			"foo.example.com": {},
+			"bar.example.com": {},
 		},
-		DnsRecord{},
+		DnsRecord{"example.com",
+		[]string{
+				"bar.example.com",
+				"example.com",
+			},
+			"TXT",
+			300},
+	},
+	{
+		"example.com",
+		300,
+		map[string]struct{}{
+			"example.com": {},
+			"bar.example.com": {},
+			"foo.bar.example.com": {},
+		},
+		DnsRecord{"example.com",
+			[]string{
+				"bar.example.com",
+				"example.com",
+				"foo.bar.example.com",
+			},
+			"TXT",
+			300},
+	},
+	{
+		"example.com",
+		300,
+		map[string]struct{}{
+			"a": {},
+			"b": {},
+			"c": {},
+		},
+		DnsRecord{"example.com",
+			[]string{
+				"a",
+				"b",
+				"c",
+			},
+			"TXT",
+			300},
 	},
 }
 
@@ -170,4 +209,11 @@ func TestStateFqdn(t *testing.T) {
 	}
 }
 
-// StateRecord(fqdn string, ttl int, entries map[string]struct{}) DnsRecord
+func TestStateRecord(t *testing.T) {
+	for _, asset := range stateRecordData {
+		// this is a test, performance in testing the end result doesn't matter here
+		if result := StateRecord(asset.fqdn, asset.ttl, asset.entries); !reflect.DeepEqual(result, asset.expected) {
+			t.Errorf("\nFqdn Expected: \n[%v], \ngot: \n[%v]", asset.expected, result)
+		}
+	}
+}
