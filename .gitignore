@@ -7,3 +7,4 @@ external-dns
 *.swp
 /.trash-cache
 .idea
+coverage.out
