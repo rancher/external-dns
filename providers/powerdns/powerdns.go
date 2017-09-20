@@ -19,7 +19,8 @@ func init() {
 	providers.RegisterProvider("powerdns", &PdnsProvider{})
 }
 
-func (d *PdnsProvider) Init(rootDomainName string) error {
+func (d *PdnsProvider) Init() error {
+	rootDomainName := utils.GetDefaultRootDomain()
 	var url, apiKey string
 	if url = os.Getenv("POWERDNS_URL"); len(url) == 0 {
 		return fmt.Errorf("POWERDNS_URL is not set")
@@ -47,6 +48,10 @@ func (d *PdnsProvider) Init(rootDomainName string) error {
 
 func (*PdnsProvider) GetName() string {
 	return "PowerDNS"
+}
+
+func (*PdnsProvider) GetRootDomain() string {
+	return utils.GetDefaultRootDomain()
 }
 
 func (d *PdnsProvider) HealthCheck() error {

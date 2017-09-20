@@ -22,7 +22,8 @@ func init() {
 	providers.RegisterProvider("dnsimple", &DNSimpleProvider{})
 }
 
-func (d *DNSimpleProvider) Init(rootDomainName string) error {
+func (d *DNSimpleProvider) Init() error {
+	rootDomainName := utils.GetDefaultRootDomain()
 	var email, apiToken string
 	if email = os.Getenv("DNSIMPLE_EMAIL"); len(email) == 0 {
 		return fmt.Errorf("DNSIMPLE_EMAIL is not set")
@@ -59,6 +60,10 @@ func (d *DNSimpleProvider) Init(rootDomainName string) error {
 
 func (*DNSimpleProvider) GetName() string {
 	return "DNSimple"
+}
+
+func (*DNSimpleProvider) GetRootDomain() string {
+	return utils.GetDefaultRootDomain()
 }
 
 func (d *DNSimpleProvider) HealthCheck() error {

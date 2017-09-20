@@ -21,7 +21,8 @@ func init() {
 	providers.RegisterProvider("pointhq", &PointHQProvider{})
 }
 
-func (d *PointHQProvider) Init(rootDomainName string) error {
+func (d *PointHQProvider) Init() error {
+	rootDomainName := utils.GetDefaultRootDomain()
 	var email, apiToken string
 	if email = os.Getenv("POINTHQ_EMAIL"); len(email) == 0 {
 		return fmt.Errorf("POINTHQ_EMAIL is not set")
@@ -58,6 +59,10 @@ func (d *PointHQProvider) Init(rootDomainName string) error {
 
 func (*PointHQProvider) GetName() string {
 	return "PointHQ"
+}
+
+func (*PointHQProvider) GetRootDomain() string {
+	return utils.GetDefaultRootDomain()
 }
 
 func (d *PointHQProvider) HealthCheck() error {

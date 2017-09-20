@@ -117,7 +117,7 @@ func removeExtraRecords(metadataRecs map[string]utils.MetadataDnsRecord, provide
 	var toRemove []utils.MetadataDnsRecord
 	for key := range providerRecs {
 		if _, ok := metadataRecs[key]; !ok {
-			toRemove = append(toRemove, utils.MetadataDnsRecord{"", "", providerRecs[key]})
+			toRemove = append(toRemove, utils.MetadataDnsRecord{"", "", providerRecs[key], false})
 		}
 	}
 

@@ -35,7 +35,8 @@ func init() {
 // two locations in that priority order:
 // 1) Environment variables: AWS_ACCESS_KEY, AWS_SECRET_KEY
 // 2) EC2 IAM role
-func (r *Route53Provider) Init(rootDomainName string) error {
+func (r *Route53Provider) Init() error {
+	rootDomainName := utils.GetDefaultRootDomain()
 	// Comply with the API's 5 req/s rate limit. If there are other
 	// clients using the same account the AWS SDK will throttle the
 	// requests automatically if the global rate limit is exhausted.
@@ -121,6 +122,10 @@ func (r *Route53Provider) validateHostedZoneId(rootDomainName string) error {
 
 func (*Route53Provider) GetName() string {
 	return "Route 53"
+}
+
+func (*Route53Provider) GetRootDomain() string {
+	return utils.GetDefaultRootDomain()
 }
 
 func (r *Route53Provider) HealthCheck() error {

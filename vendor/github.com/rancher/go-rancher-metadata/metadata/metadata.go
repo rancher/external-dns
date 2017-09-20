@@ -25,6 +25,7 @@ type Client interface {
 	GetHosts() ([]Host, error)
 	GetHost(string) (Host, error)
 	GetNetworks() ([]Network, error)
+	GetInstallUUID() (string, error)
 }
 
 type client struct {
@@ -88,6 +89,14 @@ func (m *client) SendRequest(path string) ([]byte, error) {
 
 func (m *client) GetVersion() (string, error) {
 	resp, err := m.SendRequest("/version")
+	if err != nil {
+		return "", err
+	}
+	return string(resp[:]), nil
+}
+
+func (m *client) GetInstallUUID() (string, error) {
+	resp, err := m.SendRequest("/install/uuid")
 	if err != nil {
 		return "", err
 	}

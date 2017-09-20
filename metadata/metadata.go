@@ -60,25 +60,63 @@ func (m *MetadataClient) GetVersion() (string, error) {
 	return m.MetadataClient.GetVersion()
 }
 
+func (m *MetadataClient) GetServiceToken() (string, error) {
+	service, err := m.MetadataClient.GetSelfService()
+	if err != nil {
+		return "", err
+	}
+
+	return service.Token, nil
+}
+
+func (m *MetadataClient) GetInstallUUID() (string, error) {
+	installUUID, err := m.MetadataClient.GetInstallUUID()
+	if err != nil {
+		return "", err
+	}
+
+	return installUUID, nil
+}
+
 func (m *MetadataClient) GetMetadataDnsRecords() (map[string]utils.MetadataDnsRecord, error) {
 	dnsEntries := make(map[string]utils.MetadataDnsRecord)
-	err := m.getContainersDnsRecords(dnsEntries)
+	ourFqdns := make(map[string]struct{})
+
+	err := m.getSvcContainersDnsRecords(dnsEntries, ourFqdns)
+
 	if err != nil {
 		return dnsEntries, err
+	}
+
+
+	err = m.getContainersDnsRecords(dnsEntries, ourFqdns)
+
+	if err != nil {
+		return dnsEntries, err
+	}
+
+	if len(ourFqdns) > 0 {
+		stateFqdn := utils.StateFqdn(m.EnvironmentUUID, config.RootDomainName)
+		stateRec := utils.StateRecord(stateFqdn, config.TTL, ourFqdns)
+		dnsEntries[stateFqdn] = utils.MetadataDnsRecord{
+			ServiceName: "",
+			StackName:   "",
+			DnsRecord:   stateRec,
+			IsContainer: false,
+		}
 	}
 	return dnsEntries, nil
 }
 
-func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.MetadataDnsRecord) error {
+
+func (m *MetadataClient) getSvcContainersDnsRecords(dnsEntries map[string]utils.MetadataDnsRecord, ourFqdns map[string]struct{}) error {
 	services, err := m.MetadataClient.GetServices()
 	if err != nil {
 		return err
 	}
-
-	ourFqdns := make(map[string]struct{})
+	
 	hostMeta := make(map[string]metadata.Host)
 	for _, service := range services {
-
 		// Check for Service Label: io.rancher.service.external_dns
 		// Accepts 'always', 'auto' (default), or 'never'
 		policy, ok := service.Labels["io.rancher.service.external_dns"]
@@ -93,85 +131,122 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 			continue
 		}
 
+		nameTemplate, ok := service.Labels["io.rancher.service.external_dns_name_template"]
+		if !ok {
+			nameTemplate = config.NameTemplate
+		}
+
 		for _, container := range service.Containers {
-
-			if (len(container.Ports) == 0 && policy != "always") || !containerStateOK(container) {
-				continue
+			fqdn, externalIP := m.getContainerFQDN(container, policy, hostMeta, nameTemplate)
+			if len(fqdn) != 0 && len(externalIP) != 0 {
+				addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, false, dnsEntries)
+				ourFqdns[fqdn] = struct{}{}
 			}
-
-			hostUUID := container.HostUUID
-			if len(hostUUID) == 0 {
-				logrus.Debugf("Container's %v host_uuid is empty", container.Name)
-				continue
-			}
-
-			var host metadata.Host
-			if _, ok := hostMeta[hostUUID]; ok {
-				host = hostMeta[hostUUID]
-			} else {
-				host, err = m.MetadataClient.GetHost(hostUUID)
-				if err != nil {
-					logrus.Warnf("Failed to get host metadata: %v", err)
-					continue
-				}
-				hostMeta[hostUUID] = host
-			}
-
-			// Check for Host Label: io.rancher.host.external_dns
-			// Accepts 'true' (default) or 'false'
-			if label, ok := host.Labels["io.rancher.host.external_dns"]; ok {
-				if label == "false" {
-					logrus.Debugf("Container %v Host %s is Disabled", container.Name, host.Name)
-					continue
-				}
-			}
-
-			var externalIP string
-			if ip, ok := host.Labels["io.rancher.host.external_dns_ip"]; ok && len(ip) > 0 {
-				externalIP = ip
-			} else if len(container.Ports) > 0 {
-				if ip, ok := parsePortToIP(container.Ports[0]); ok {
-					externalIP = ip
-				}
-			}
-
-			// fallback to host agent IP
-			if len(externalIP) == 0 {
-				logrus.Debugf("Fallback to host.AgentIP %s for container %s", host.AgentIP, container.Name)
-				externalIP = host.AgentIP
-			}
-
-			if net.ParseIP(externalIP) == nil {
-				logrus.Errorf("Skipping container %s: Invalid IP address %s", container.Name, externalIP)
-			}
-
-			nameTemplate, ok := service.Labels["io.rancher.service.external_dns_name_template"]
-			if !ok {
-				nameTemplate = config.NameTemplate
-			}
-
-			fqdn := utils.FqdnFromTemplate(nameTemplate, container.ServiceName, container.StackName,
-				m.EnvironmentName, config.RootDomainName)
-
-			addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries)
-			ourFqdns[fqdn] = struct{}{}
 		}
 	}
+	return nil
+}
 
-	if len(ourFqdns) > 0 {
-		stateFqdn := utils.StateFqdn(m.EnvironmentUUID, config.RootDomainName)
-		stateRec := utils.StateRecord(stateFqdn, config.TTL, ourFqdns)
-		dnsEntries[stateFqdn] = utils.MetadataDnsRecord{
-			ServiceName: "",
-			StackName:   "",
-			DnsRecord:   stateRec,
+func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.MetadataDnsRecord, ourFqdns map[string]struct{}) error {
+	allcontainers, err := m.MetadataClient.GetContainers()
+	if err != nil {
+		return err
+	}
+
+	hostMeta := make(map[string]metadata.Host)
+	for _, container := range allcontainers {
+
+		if !(container.ServiceName == "" && container.StackName != "") {
+			continue
+		}
+
+		// Check for Label: io.rancher.service.external_dns
+		// Accepts 'always', 'auto' (default), or 'never'
+		policy, ok := container.Labels["io.rancher.service.external_dns"]
+		if !ok {
+			policy = "auto"
+		} else if policy == "never" {
+			logrus.Debugf("Container %v is Disabled", container.Name)
+			continue
+		}
+
+		nameTemplate, ok := container.Labels["io.rancher.service.external_dns_name_template"]
+		if !ok {
+			nameTemplate = config.NameTemplate
+		}
+
+		fqdn, externalIP := m.getContainerFQDN(container, policy, hostMeta, nameTemplate)
+
+		if len(fqdn) != 0 && len(externalIP) != 0 {
+			addToDnsEntries(fqdn, externalIP, container.Name, container.StackName, true, dnsEntries)
+			ourFqdns[fqdn] = struct{}{}
 		}
 	}
 
 	return nil
 }
 
-func addToDnsEntries(fqdn, ip, service, stack string, dnsEntries map[string]utils.MetadataDnsRecord) {
+func (m *MetadataClient) getContainerFQDN(container metadata.Container, policy string, hostMeta map[string]metadata.Host, nameTemplate string) (string, string) {
+
+	if (len(container.Ports) == 0 && policy != "always") || !containerStateOK(container) {
+		return "", ""
+	}
+
+	hostUUID := container.HostUUID
+	if len(hostUUID) == 0 {
+		logrus.Debugf("Container's %v host_uuid is empty", container.Name)
+		return "", ""
+	}
+
+	var host metadata.Host
+	if _, ok := hostMeta[hostUUID]; ok {
+		host = hostMeta[hostUUID]
+	} else {
+		host, err := m.MetadataClient.GetHost(hostUUID)
+		if err != nil {
+			logrus.Warnf("Failed to get host metadata: %v", err)
+			return "", ""
+		}
+		hostMeta[hostUUID] = host
+	}
+
+	// Check for Host Label: io.rancher.host.external_dns
+	// Accepts 'true' (default) or 'false'
+	if label, ok := host.Labels["io.rancher.host.external_dns"]; ok {
+		if label == "false" {
+			logrus.Debugf("Container %v Host %s is Disabled", container.Name, host.Name)
+			return "", ""
+		}
+	}
+
+	var externalIP string
+	if ip, ok := host.Labels["io.rancher.host.external_dns_ip"]; ok && len(ip) > 0 {
+		externalIP = ip
+	} else if len(container.Ports) > 0 {
+		if ip, ok := parsePortToIP(container.Ports[0]); ok {
+			externalIP = ip
+		}
+	}
+
+	// fallback to host agent IP
+	if len(externalIP) == 0 {
+		logrus.Debugf("Fallback to host.AgentIP %s for container %s", host.AgentIP, container.Name)
+		externalIP = host.AgentIP
+	}
+
+	if net.ParseIP(externalIP) == nil {
+		logrus.Errorf("Skipping container %s: Invalid IP address %s", container.Name, externalIP)
+	}
+
+	fqdnGenerator := utils.GetFQDNGenerator(config.FqdnGeneratorName)
+	fqdn := fqdnGenerator.GenerateFQDN(nameTemplate, container,
+		m.EnvironmentName, config.RootDomainName)
+
+
+	return fqdn, externalIP
+}
+
+func addToDnsEntries(fqdn, ip, service, stack string, isContainer bool, dnsEntries map[string]utils.MetadataDnsRecord) {
 	var records []string
 	if _, ok := dnsEntries[fqdn]; !ok {
 		records = []string{ip}
@@ -190,6 +265,7 @@ func addToDnsEntries(fqdn, ip, service, stack string, dnsEntries map[string]util
 		ServiceName: service,
 		StackName:   stack,
 		DnsRecord:   utils.DnsRecord{fqdn, records, "A", config.TTL},
+		IsContainer: isContainer,
 	}
 }
 

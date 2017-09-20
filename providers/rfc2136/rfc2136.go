@@ -25,7 +25,8 @@ func init() {
 	providers.RegisterProvider("rfc2136", &RFC2136Provider{})
 }
 
-func (r *RFC2136Provider) Init(rootDomainName string) error {
+func (r *RFC2136Provider) Init() error {
+	rootDomainName := utils.GetDefaultRootDomain()
 	var host, port, keyName, secret string
 	var insecure bool
 	var err error
@@ -73,6 +74,10 @@ func (r *RFC2136Provider) Init(rootDomainName string) error {
 
 func (*RFC2136Provider) GetName() string {
 	return "RFC2136"
+}
+
+func (*RFC2136Provider) GetRootDomain() string {
+	return utils.GetDefaultRootDomain()
 }
 
 func (r *RFC2136Provider) HealthCheck() error {

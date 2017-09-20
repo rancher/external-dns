@@ -36,7 +36,8 @@ func (t *TokenSource) Token() (*oauth2.Token, error) {
 	return token, nil
 }
 
-func (p *DigitalOceanProvider) Init(rootDomainName string) error {
+func (p *DigitalOceanProvider) Init() error {
+	rootDomainName := utils.GetDefaultRootDomain()
 	var pat string
 	if pat = os.Getenv("DO_PAT"); len(pat) == 0 {
 		return fmt.Errorf("DO_PAT is not set")
@@ -77,6 +78,10 @@ func (p *DigitalOceanProvider) Init(rootDomainName string) error {
 
 func (p *DigitalOceanProvider) GetName() string {
 	return "DigitalOcean"
+}
+
+func (*DigitalOceanProvider) GetRootDomain() string {
+	return utils.GetDefaultRootDomain()
 }
 
 func (p *DigitalOceanProvider) HealthCheck() error {
