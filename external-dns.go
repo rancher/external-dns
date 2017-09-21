@@ -39,7 +39,7 @@ func addMissingRecords(metadataRecs map[string]utils.MetadataDnsRecord, provider
 		logrus.Debugf("DNS records to add: %v", toAdd)
 	}
 
-	return updateRecords(toAdd, &Add)
+	return (toAdd, &Add)
 }
 
 func updateRecords(toChange []utils.MetadataDnsRecord, op *Op) []utils.MetadataDnsRecord {
@@ -59,7 +59,7 @@ func updateRecords(toChange []utils.MetadataDnsRecord, op *Op) []utils.MetadataD
 				logrus.Errorf("Failed to remove DNS record from provider %v: %v", value, err)
 			}
 		case Update:
-			logrus.Infof("Updating dns record: %v", value)
+			logrusupdateRecords.Infof("Updating dns record: %v", value)
 			if err := provider.UpdateRecord(value.DnsRecord); err != nil {
 				logrus.Errorf("Failed to update DNS record to provider %v: %v", value, err)
 			} else {
@@ -117,7 +117,7 @@ func removeExtraRecords(metadataRecs map[string]utils.MetadataDnsRecord, provide
 	var toRemove []utils.MetadataDnsRecord
 	for key := range providerRecs {
 		if _, ok := metadataRecs[key]; !ok {
-			toRemove = append(toRemove, utils.MetadataDnsRecord{"", "", providerRecs[key]})
+			toRemove = append(toRemove, utils.MetadataDnsRecord{ServiceName: "", StackName: "", DnsRecord: providerRecs[key]})
 		}
 	}
 

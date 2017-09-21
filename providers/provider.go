@@ -17,11 +17,11 @@ type Provider interface {
 }
 
 var (
-	providers = make(map[string]Provider)
+	registeredProviders = make(map[string]Provider)
 )
 
 func GetProvider(name, rootDomainName string) (Provider, error) {
-	if provider, ok := providers[name]; ok {
+	if provider, ok := registeredProviders[name]; ok {
 		if err := provider.Init(rootDomainName); err != nil {
 			return nil, err
 		}
@@ -31,8 +31,8 @@ func GetProvider(name, rootDomainName string) (Provider, error) {
 }
 
 func RegisterProvider(name string, provider Provider) {
-	if _, exists := providers[name]; exists {
+	if _, exists := registeredProviders[name]; exists {
 		logrus.Fatalf("Provider '%s' tried to register twice", name)
 	}
-	providers[name] = provider
+	registeredProviders[name] = provider
 }

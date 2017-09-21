@@ -5,10 +5,6 @@ import (
 	"testing"
 )
 
-type MockDnsEntry struct {
-	data string
-}
-
 /*
  * --- Test Data ---
  */
@@ -270,13 +266,13 @@ func TestTypesForSanity(t *testing.T) {
 	// Can instances of this complex type be compared?
 	for _, asset := range Metadata_DnsRecord_Data {
 		if !reflect.DeepEqual(asset.input, asset.expected) {
-			t.Errorf("\nExpected: \n[%s], \ngot: \n[%s]", asset.expected, asset.input)
+			t.Errorf("\nExpected: \n[%v], \ngot: \n[%v]", asset.expected, asset.input)
 		}
 	}
 
 	for _, asset := range Metadata_DnsRecord_NegativeData {
 		if reflect.DeepEqual(asset.input, asset.expected) {
-			t.Errorf("\nExpected: \n[%s], \ngot: \n[%s]", asset.expected, asset.input)
+			t.Errorf("\nExpected: \n[%v], \ngot: \n[%v]", asset.expected, asset.input)
 		}
 	}
 }

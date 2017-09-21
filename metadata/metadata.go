@@ -189,7 +189,7 @@ func addToDnsEntries(fqdn, ip, service, stack string, dnsEntries map[string]util
 	dnsEntries[fqdn] = utils.MetadataDnsRecord{
 		ServiceName: service,
 		StackName:   stack,
-		DnsRecord:   utils.DnsRecord{fqdn, records, "A", config.TTL},
+		DnsRecord:   utils.DnsRecord{Fqdn: fqdn, Records: records, Type: "A", TTL: config.TTL},
 	}
 }
 
