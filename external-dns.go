@@ -26,6 +26,8 @@ func UpdateProviderDnsRecords(metadataRecs map[string]utils.MetadataDnsRecord) (
 	return updated, nil
 }
 
+// Finds missing records by looking at each metadataRecs entry for existence in providerRecs.
+// Missing entries (toAdd) are then returned.
 func addMissingRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) []utils.MetadataDnsRecord {
 	var toAdd []utils.MetadataDnsRecord
 	for key := range metadataRecs {
@@ -39,7 +41,7 @@ func addMissingRecords(metadataRecs map[string]utils.MetadataDnsRecord, provider
 		logrus.Debugf("DNS records to add: %v", toAdd)
 	}
 
-	return (toAdd, &Add)
+	return toAdd
 }
 
 func updateRecords(toChange []utils.MetadataDnsRecord, op *Op) []utils.MetadataDnsRecord {
@@ -59,7 +61,7 @@ func updateRecords(toChange []utils.MetadataDnsRecord, op *Op) []utils.MetadataD
 				logrus.Errorf("Failed to remove DNS record from provider %v: %v", value, err)
 			}
 		case Update:
-			logrusupdateRecords.Infof("Updating dns record: %v", value)
+			logrus.Infof("Updating dns record: %v", value)
 			if err := provider.UpdateRecord(value.DnsRecord); err != nil {
 				logrus.Errorf("Failed to update DNS record to provider %v: %v", value, err)
 			} else {
