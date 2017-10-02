@@ -27,7 +27,7 @@ func GetProvider(name, rootDomainName string) (Provider, error) {
 		}
 		return provider, nil
 	}
-	return nil, fmt.Errorf("No such provider '%s'", name)
+	return nil, fmt.Errorf("no such provider '%s'", name)
 }
 
 func RegisterProvider(name string, provider Provider) {

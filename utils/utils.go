@@ -15,6 +15,10 @@ const (
 	stateRecordFqdnTemplate = "external-dns-%s.%s"
 )
 
+/*
+ * --- Test Data ---
+ */
+
 // MetadataDnsRecord is a wrapper around a DnsRecord
 // that holds information about the service and stack
 // the record belongs to

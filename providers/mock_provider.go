@@ -13,7 +13,8 @@ type Probe struct {
 
 type MockProvider struct {
 	Provider
-	Probe *Probe
+	Probe      *Probe
+	dnsRecords []utils.DnsRecord
 }
 
 func (m MockProvider) Init(rootDomainName string) error {
@@ -44,7 +45,11 @@ func (m MockProvider) UpdateRecord(record utils.DnsRecord) error {
 func (m MockProvider) GetRecords() ([]utils.DnsRecord, error) {
 	m.Probe.hasGetRecords = true
 
-	return []utils.DnsRecord{}, nil
+	return m.dnsRecords, nil
+}
+
+func (m *MockProvider) SetRecords(dnsRecords []utils.DnsRecord) {
+	m.dnsRecords = dnsRecords
 }
 
 func NewMockProvider() MockProvider {
