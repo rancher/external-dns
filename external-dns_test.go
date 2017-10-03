@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 	"github.com/rancher/external-dns/test"
+	"github.com/rancher/external-dns/config"
 )
 
 
@@ -31,6 +32,38 @@ var addMissingRecords_testData = []struct {
 		map[string]utils.DnsRecord{"example.com": dnsrecord_example},
 		[]utils.MetadataDnsRecord{
 			metadata_foo_example,
+		},
+	},
+}
+
+var ensureUpgradeToState_testData = []struct {
+	input        []utils.DnsRecord
+	probe        *providers.Probe
+	expected     interface{}
+}{
+	{
+		[]utils.DnsRecord{
+			test.NewMockDnsRecord("", 300, "TXT", "Testing123-TXT"),
+		},
+		&providers.Probe{
+			HasGetRecords: true,
+			HasSetRecords: true,
+		},
+		[]utils.DnsRecord{
+			test.NewMockDnsRecord("", 300, "TXT", "Testing123-TXT"),
+		},
+	},
+	{
+		[]utils.DnsRecord{
+			test.NewMockDnsRecord(".test.", 300, "A", "Testing123-A"),
+		},
+		&providers.Probe{
+			HasGetRecords: true,
+			HasSetRecords: true,
+			HasAddRecord: true,
+		},
+		[]utils.DnsRecord{
+			test.NewMockDnsRecord(".test.", 300, "A", "Testing123-A"),
 		},
 	},
 }
@@ -122,4 +155,46 @@ func Test_getProviderDnsRecords(t *testing.T) {
 	}
 }
 
-// func EnsureUpgradeToStateRRSet() error
+func Test_ensureUpgradeToStateRRSet(t *testing.T) {
+	m = &metadata.MetadataClient{
+		EnvironmentName: "test",
+		EnvironmentUUID: test.MockUUID,
+		MetadataClient:  nil,
+	}
+
+	config.TTL = 300
+
+	init := func() {
+		provider = nil
+	}
+
+	for idx, asset := range ensureUpgradeToState_testData {
+		init()
+		mockProvider := registerMockProvider(asset.input)
+
+		// Call to upgrade
+		if result := EnsureUpgradeToStateRRSet(); result != nil {
+			t.Errorf("General call to function failed, didn't even get to inspect side effects yet.")
+		} else {
+			probe := mockProvider.Probe
+			if !reflect.DeepEqual(probe, asset.probe) {
+				t.Errorf(
+					"Test Data Index #%d probe expected [%v], found [%v]",
+					idx,
+					asset.probe,
+					probe,
+				)
+			}
+		}
+
+		// Call to records
+		if result, err := provider.GetRecords(); err != nil {
+			t.Errorf("Error obtaining records from provider in test.")
+		} else {
+			if !reflect.DeepEqual(asset.expected, result) {
+				t.Errorf("\nTest Data Index #%d Expected: \n[%v], \ngot: \n[%v]", idx, asset.expected, result)
+			}
+		}
+	}
+
+}

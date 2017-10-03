@@ -3,12 +3,14 @@ package providers
 import "github.com/rancher/external-dns/utils"
 
 type Probe struct {
-	hasInit         bool
-	hasHealthCheck  bool
-	hasAddRecord    bool
-	hasRemoveRecord bool
-	hasUpdateRecord bool
-	hasGetRecords   bool
+	HasInit         bool
+	HasHealthCheck  bool
+	HasAddRecord    bool
+	HasRemoveRecord bool
+	HasUpdateRecord bool
+	HasGetRecords   bool
+	HasSetRecords   bool
+	HasGetName      bool
 }
 
 type MockProvider struct {
@@ -18,37 +20,42 @@ type MockProvider struct {
 }
 
 func (m MockProvider) Init(rootDomainName string) error {
-	m.Probe.hasInit = true
+	m.Probe.HasInit = true
 	return nil
 }
 
+func (m MockProvider) GetName() string {
+	m.Probe.HasGetName = true
+	return "MockProvider"
+}
+
 func (m MockProvider) HealthCheck() error {
-	m.Probe.hasHealthCheck = true
+	m.Probe.HasHealthCheck = true
 	return nil
 }
 
 func (m MockProvider) AddRecord(record utils.DnsRecord) error {
-	m.Probe.hasAddRecord = true
+	m.Probe.HasAddRecord = true
 	return nil
 }
 
 func (m MockProvider) RemoveRecord(record utils.DnsRecord) error {
-	m.Probe.hasRemoveRecord = true
+	m.Probe.HasRemoveRecord = true
 	return nil
 }
 
 func (m MockProvider) UpdateRecord(record utils.DnsRecord) error {
-	m.Probe.hasUpdateRecord = true
+	m.Probe.HasUpdateRecord = true
 	return nil
 }
 
 func (m MockProvider) GetRecords() ([]utils.DnsRecord, error) {
-	m.Probe.hasGetRecords = true
-
+	m.Probe.HasGetRecords = true
 	return m.dnsRecords, nil
 }
 
 func (m *MockProvider) SetRecords(dnsRecords []utils.DnsRecord) {
+	m.Probe.HasSetRecords = true
 	m.dnsRecords = dnsRecords
 }
 

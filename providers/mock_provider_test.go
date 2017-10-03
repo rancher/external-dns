@@ -31,28 +31,32 @@ var providerTestData = []struct {
 func testProvider(t *testing.T, provider Provider) {
 	var probe *Probe = provider.(MockProvider).Probe
 
-	if provider.Init("example.com"); !probe.hasInit {
+	if provider.Init("example.com"); !probe.HasInit {
 		t.Errorf("Expected MockProvider to be initialized. Probe found init to be false.")
 	}
 
-	if provider.HealthCheck(); !probe.hasHealthCheck {
+	if provider.HealthCheck(); !probe.HasHealthCheck {
 		t.Errorf("Expected HealthCheck to run and recorded on probe. Probe found hasHealthCheck to be false.")
 	}
 
-	if provider.AddRecord(utils.DnsRecord{}); !probe.hasAddRecord {
+	if provider.AddRecord(utils.DnsRecord{}); !probe.HasAddRecord {
 		t.Errorf("Expected AddRecord to run and recorded on probe. Probe found hasAddRecord to be false.")
 	}
 
-	if provider.RemoveRecord(utils.DnsRecord{}); !probe.hasRemoveRecord {
+	if provider.RemoveRecord(utils.DnsRecord{}); !probe.HasRemoveRecord {
 		t.Errorf("Expected RemoveRecord to run and recorded on probe. Probe found hasRemoveRecord to be false.")
 	}
 
-	if provider.UpdateRecord(utils.DnsRecord{}); !probe.hasUpdateRecord {
+	if provider.UpdateRecord(utils.DnsRecord{}); !probe.HasUpdateRecord {
 		t.Errorf("Expected UpdateRecord to run and recorded on probe. Probe found hasUpdateRecord to be false.")
 	}
 
-	if provider.GetRecords(); !probe.hasUpdateRecord {
+	if provider.GetRecords(); !probe.HasUpdateRecord {
 		t.Errorf("Expected GetRecords to run and recorded on probe. Probe found hasGetRecords to be false.")
+	}
+
+	if provider.GetName(); !probe.HasGetName {
+		t.Errorf("Expected GetName to run and recorded on probe. Probe found hasGetName to be false.")
 	}
 }
 
