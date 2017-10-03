@@ -31,32 +31,32 @@ var providerTestData = []struct {
 func testProvider(t *testing.T, provider Provider) {
 	var probe *Probe = provider.(MockProvider).Probe
 
-	if provider.Init("example.com"); !probe.HasInit {
+	if provider.Init("example.com"); probe.CountInit <= 0 {
 		t.Errorf("Expected MockProvider to be initialized. Probe found init to be false.")
 	}
 
-	if provider.HealthCheck(); !probe.HasHealthCheck {
-		t.Errorf("Expected HealthCheck to run and recorded on probe. Probe found hasHealthCheck to be false.")
+	if provider.HealthCheck(); probe.CountHealthCheck <= 0 {
+		t.Errorf("Expected HealthCheck to run and recorded on probe. Probe found CountHealthCheck to be false.")
 	}
 
-	if provider.AddRecord(utils.DnsRecord{}); !probe.HasAddRecord {
-		t.Errorf("Expected AddRecord to run and recorded on probe. Probe found hasAddRecord to be false.")
+	if provider.AddRecord(utils.DnsRecord{}); probe.CountAddRecord <= 0 {
+		t.Errorf("Expected AddRecord to run and recorded on probe. Probe found CountAddRecord to be false.")
 	}
 
-	if provider.RemoveRecord(utils.DnsRecord{}); !probe.HasRemoveRecord {
-		t.Errorf("Expected RemoveRecord to run and recorded on probe. Probe found hasRemoveRecord to be false.")
+	if provider.RemoveRecord(utils.DnsRecord{}); probe.CountRemoveRecord <= 0 {
+		t.Errorf("Expected RemoveRecord to run and recorded on probe. Probe found CountRemoveRecord to be false.")
 	}
 
-	if provider.UpdateRecord(utils.DnsRecord{}); !probe.HasUpdateRecord {
-		t.Errorf("Expected UpdateRecord to run and recorded on probe. Probe found hasUpdateRecord to be false.")
+	if provider.UpdateRecord(utils.DnsRecord{}); probe.CountUpdateRecord <= 0 {
+		t.Errorf("Expected UpdateRecord to run and recorded on probe. Probe found CountUpdateRecord to be false.")
 	}
 
-	if provider.GetRecords(); !probe.HasUpdateRecord {
-		t.Errorf("Expected GetRecords to run and recorded on probe. Probe found hasGetRecords to be false.")
+	if provider.GetRecords(); probe.CountUpdateRecord <= 0 {
+		t.Errorf("Expected GetRecords to run and recorded on probe. Probe found CountGetRecords to be false.")
 	}
 
-	if provider.GetName(); !probe.HasGetName {
-		t.Errorf("Expected GetName to run and recorded on probe. Probe found hasGetName to be false.")
+	if provider.GetName(); probe.CountGetName <= 0 {
+		t.Errorf("Expected GetName to run and recorded on probe. Probe found CountGetName to be false.")
 	}
 }
 

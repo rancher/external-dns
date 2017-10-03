@@ -10,6 +10,9 @@ import (
 	"github.com/rancher/external-dns/config"
 )
 
+func Init() {
+	provider = nil
+}
 
 var metadata_example = test.NewMockMetaDataRecord("service-1", "stack-1", "example.com")
 var metadata_foo_example = test.NewMockMetaDataRecord("service-1", "stack-1", "foo.example.com")
@@ -46,8 +49,8 @@ var ensureUpgradeToState_testData = []struct {
 			test.NewMockDnsRecord("", 300, "TXT", "Testing123-TXT"),
 		},
 		&providers.Probe{
-			HasGetRecords: true,
-			HasSetRecords: true,
+			CountGetRecords: 1,
+			CountSetRecords: 1,
 		},
 		[]utils.DnsRecord{
 			test.NewMockDnsRecord("", 300, "TXT", "Testing123-TXT"),
@@ -58,9 +61,9 @@ var ensureUpgradeToState_testData = []struct {
 			test.NewMockDnsRecord(".test.", 300, "A", "Testing123-A"),
 		},
 		&providers.Probe{
-			HasGetRecords: true,
-			HasSetRecords: true,
-			HasAddRecord: true,
+			CountGetRecords: 1,
+			CountSetRecords: 1,
+			CountAddRecord:  1,
 		},
 		[]utils.DnsRecord{
 			test.NewMockDnsRecord(".test.", 300, "A", "Testing123-A"),
@@ -124,13 +127,100 @@ func Test_addMissingRecords(t *testing.T) {
 //  -> RemoveRecord
 //  -> UpdateRecord
 
+func Test_updateRecords(t *testing.T) {
+	var updateRecords_testData = []struct {
+		input_records []utils.MetadataDnsRecord
+		input_op      *Op
+		expected      []utils.MetadataDnsRecord
+		expected_probe         *providers.Probe
+	} {
+		{
+			[]utils.MetadataDnsRecord{
+				metadata_example,
+			},
+			&Add,
+			[]utils.MetadataDnsRecord{
+				metadata_example,
+			},
+			&providers.Probe{
+				CountAddRecord: 1,
+				CountSetRecords: 1,
+			},
+		},
+		{
+			[]utils.MetadataDnsRecord{
+				metadata_example,
+			},
+			&Remove,
+			[]utils.MetadataDnsRecord{},
+			&providers.Probe{
+				CountRemoveRecord: 1,
+				CountSetRecords: 1,
+			},
+		},
+		{
+			[]utils.MetadataDnsRecord{
+				metadata_example,
+			},
+			&Update,
+			[]utils.MetadataDnsRecord{
+				metadata_example,
+			},
+			&providers.Probe{
+				CountUpdateRecord: 1,
+				CountSetRecords: 1,
+			},
+		},
+	}
+
+	var dnsRecords = []utils.DnsRecord{
+		dnsrecord_example,
+	}
+
+	for idx, asset := range updateRecords_testData {
+		Init()
+		mockProvider := registerMockProvider(dnsRecords)
+
+		result := updateRecords(asset.input_records, asset.input_op)
+		// only do DeepEqual when there are results, otherwise inspect the probe
+		if len(result) > 0 && !reflect.DeepEqual(result, asset.expected) {
+			t.Errorf("\nTest Data Index #%d, Expected: \n[%v], \ngot: \n[%v]", idx, asset.expected, result)
+		} else {
+			probe := mockProvider.Probe
+			ex_probe := asset.expected_probe
+			if !reflect.DeepEqual(ex_probe, probe) {
+				t.Errorf("\nTest Data Index #%d, Expected probe: \n[%v], \ngot probe: \n[%v]",
+					     idx,
+					     ex_probe,
+					     probe,
+				)
+			}
+		}
+	}
+}
+
 // updateExistingRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) []utils.MetadataDnsRecord
 //	-> UpdateRecords
 
 // removeExtraRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) []utils.MetadataDnsRecord
 //	-> updateRecords
 
-// getProviderDnsRecords() (map[string]utils.DnsRecord, map[string]utils.DnsRecord, error)
+//func Test_removeExtraRecords(t *testing.T) {
+//	var removeExtraRecords_testData = []struct {
+//		inputMeta  map[string]utils.MetadataDnsRecord
+//		inputRecs  map[string]utils.DnsRecord
+//		expected   []utils.MetadataDnsRecord
+//	} {
+//		{
+//
+//		},
+//	}
+//
+//	for idx, asset := range removeExtraRecords_testData {
+//
+//	}
+//}
+
 func Test_getProviderDnsRecords(t *testing.T) {
 	// Mock environment
 	m = &metadata.MetadataClient{
@@ -164,12 +254,8 @@ func Test_ensureUpgradeToStateRRSet(t *testing.T) {
 
 	config.TTL = 300
 
-	init := func() {
-		provider = nil
-	}
-
 	for idx, asset := range ensureUpgradeToState_testData {
-		init()
+		Init()
 		mockProvider := registerMockProvider(asset.input)
 
 		// Call to upgrade
