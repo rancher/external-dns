@@ -1,13 +1,13 @@
 package main
 
 import (
+	"github.com/rancher/external-dns/config"
 	"github.com/rancher/external-dns/metadata"
 	"github.com/rancher/external-dns/providers"
+	"github.com/rancher/external-dns/test"
 	"github.com/rancher/external-dns/utils"
 	"reflect"
 	"testing"
-	"github.com/rancher/external-dns/test"
-	"github.com/rancher/external-dns/config"
 )
 
 func Init() {
@@ -42,9 +42,9 @@ var addMissingRecords_testData = []struct {
 }
 
 var ensureUpgradeToState_testData = []struct {
-	input        []utils.DnsRecord
-	probe        *providers.Probe
-	expected     interface{}
+	input    []utils.DnsRecord
+	probe    *providers.Probe
+	expected interface{}
 }{
 	{
 		[]utils.DnsRecord{
@@ -100,11 +100,11 @@ var getProviderDnsRecords_testData = []struct {
 }
 
 var updateRecords_testData = []struct {
-	input_records []utils.MetadataDnsRecord
-	input_op      *Op
-	expected      []utils.MetadataDnsRecord
-	expected_probe         *providers.Probe
-} {
+	input_records  []utils.MetadataDnsRecord
+	input_op       *Op
+	expected       []utils.MetadataDnsRecord
+	expected_probe *providers.Probe
+}{
 	{
 		[]utils.MetadataDnsRecord{
 			metadata_example,
@@ -114,7 +114,7 @@ var updateRecords_testData = []struct {
 			metadata_example,
 		},
 		&providers.Probe{
-			CountAddRecord: 1,
+			CountAddRecord:  1,
 			CountSetRecords: 1,
 		},
 	},
@@ -126,7 +126,7 @@ var updateRecords_testData = []struct {
 		[]utils.MetadataDnsRecord{},
 		&providers.Probe{
 			CountRemoveRecord: 1,
-			CountSetRecords: 1,
+			CountSetRecords:   1,
 		},
 	},
 	{
@@ -139,7 +139,7 @@ var updateRecords_testData = []struct {
 		},
 		&providers.Probe{
 			CountUpdateRecord: 1,
-			CountSetRecords: 1,
+			CountSetRecords:   1,
 		},
 	},
 }
@@ -150,7 +150,7 @@ var removeExtraRecords_testData = []struct {
 	inputRecs     map[string]utils.DnsRecord
 	expected      []utils.MetadataDnsRecord
 	expectedProbe *providers.Probe
-} {
+}{
 	{
 		[]utils.DnsRecord{
 			dnsrecord_example,
@@ -162,7 +162,7 @@ var removeExtraRecords_testData = []struct {
 		[]utils.MetadataDnsRecord{}, // mock provider does nothing, but we'll check for probe
 		&providers.Probe{
 			CountRemoveRecord: 1,
-			CountSetRecords: 1,
+			CountSetRecords:   1,
 		},
 	},
 }
@@ -173,9 +173,9 @@ var updateExistingRecords_testData = []struct {
 	inputRecs     map[string]utils.DnsRecord
 	expected      []utils.MetadataDnsRecord
 	expectedProbe *providers.Probe
-} {
+}{
 	{ // test case is seeded with example, but we will pump in foo as a mock update, this should
-	  // hit the case where metadataR and providerR are the same and key inspection must occur
+		// hit the case where metadataR and providerR are the same and key inspection must occur
 		[]utils.DnsRecord{
 			dnsrecord_example,
 		},
@@ -188,11 +188,11 @@ var updateExistingRecords_testData = []struct {
 		}, // update sends back 'changed'
 		&providers.Probe{
 			CountUpdateRecord: 1,
-			CountSetRecords: 1,
+			CountSetRecords:   1,
 		},
 	},
 	{ // test case is seeded with example, but we will pump in foo as a mock update, this should
-	  // hit the case where metadataR and providerR aren't the same
+		// hit the case where metadataR and providerR aren't the same
 		[]utils.DnsRecord{
 			dnsrecord_example,
 		},
@@ -217,7 +217,72 @@ var updateExistingRecords_testData = []struct {
 		}, // update sends back 'changed'
 		&providers.Probe{
 			CountUpdateRecord: 1,
+			CountSetRecords:   1,
+		},
+	},
+}
+
+var updateProviderDnsRecords_testData = []struct {
+	seed     []utils.DnsRecord
+	input    map[string]utils.MetadataDnsRecord
+	expected []utils.MetadataDnsRecord
+	probe    *providers.Probe
+}{
+	{
+		[]utils.DnsRecord{
+			dnsrecord_example,
+		},
+		map[string]utils.MetadataDnsRecord{
+			"example.com": metadata_example,
+		},
+		[]utils.MetadataDnsRecord{
+			metadata_example,
+		},
+		&providers.Probe{
+			CountGetRecords: 1,
 			CountSetRecords: 1,
+		},
+	},
+	{
+		[]utils.DnsRecord{
+			dnsrecord_example,
+		},
+		map[string]utils.MetadataDnsRecord{
+			"example.com": metadata_example,
+		},
+		[]utils.MetadataDnsRecord{
+			metadata_example,
+		},
+		&providers.Probe{
+			CountGetRecords: 1,
+			CountSetRecords: 1,
+		},
+	},
+	{
+		[]utils.DnsRecord{},
+		map[string]utils.MetadataDnsRecord{
+			"example.com": metadata_example,
+		},
+		[]utils.MetadataDnsRecord{
+			metadata_example,
+		},
+		&providers.Probe{
+			CountGetRecords: 1,
+			CountSetRecords: 1,
+		},
+	},
+}
+
+var updateProviderDnsRecords_negative_testData = []struct {
+	input map[string]utils.MetadataDnsRecord
+	probe *providers.Probe
+}{
+	{
+		map[string]utils.MetadataDnsRecord{
+			"example.com": metadata_example,
+		},
+		&providers.Probe{
+			CountGetRecords: 1,
 		},
 	},
 }
@@ -234,9 +299,47 @@ func registerMockProvider(records []utils.DnsRecord) *providers.MockProvider {
 	return &mockProvider
 }
 
-// func UpdateProviderDnsRecords(metadataRecs map[string]utils.MetadataDnsRecord) ([]utils.MetadataDnsRecord, error)
-//	-> addMissingRecords
-//	-> updateExistingRecords
+func Test_UpdateProviderDnsRecords(t *testing.T) {
+	m = &metadata.MetadataClient{
+		EnvironmentName: "test",
+		EnvironmentUUID: test.MockUUID,
+		MetadataClient:  nil,
+	}
+
+	for idx, asset := range updateProviderDnsRecords_testData {
+		Init()
+		mockProvider := registerMockProvider(asset.seed)
+		probe := mockProvider.Probe
+		result, err := UpdateProviderDnsRecords(asset.input)
+
+		if err != nil { // ensure no errors
+			t.Errorf("\nTest Data Index #%d, did not expect to receive an error: \n[%v]", idx, err)
+		}
+
+		if !reflect.DeepEqual(result, asset.expected) { // ensure expected
+			t.Errorf("\nTest Data Index #%d, Expected: \n[%v], \ngot: \n[%v]", idx, result, asset.expected)
+		}
+
+		if !reflect.DeepEqual(probe, asset.probe) {
+			t.Errorf("\nTest Data Index #%d, Expected Probe: \n[%v], \ngot Probe: \n[%v]", idx, probe, asset.probe)
+		}
+	}
+
+	mockProvider := providers.NewBadMockProvider()
+	provider = mockProvider
+
+	for idx, asset := range updateProviderDnsRecords_negative_testData {
+		probe := mockProvider.Probe
+
+		if _, err := UpdateProviderDnsRecords(asset.input); err == nil { // ensure no errors
+			t.Errorf("\nTest Data Index #%d, expected to receive an error.", idx)
+		} else {
+			if !reflect.DeepEqual(probe, asset.probe) {
+				t.Errorf("\nNegative Test Data Index #%d, Expected Probe: \n[%v], \ngot Probe: \n[%v]", idx, probe, asset.probe)
+			}
+		}
+	}
+}
 
 func Test_addMissingRecords(t *testing.T) {
 	for _, asset := range addMissingRecords_testData {
@@ -265,9 +368,9 @@ func Test_updateRecords(t *testing.T) {
 			ex_probe := asset.expected_probe
 			if !reflect.DeepEqual(ex_probe, probe) {
 				t.Errorf("\nTest Data Index #%d, Expected probe: \n[%v], \ngot probe: \n[%v]",
-					     idx,
-					     ex_probe,
-					     probe,
+					idx,
+					ex_probe,
+					probe,
 				)
 			}
 		}

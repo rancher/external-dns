@@ -1,10 +1,10 @@
 package providers
 
 import (
-	"github.com/rancher/external-dns/utils"
-	"testing"
 	"github.com/rancher/external-dns/test"
+	"github.com/rancher/external-dns/utils"
 	"reflect"
+	"testing"
 )
 
 var providerTestData = []struct {
@@ -19,14 +19,12 @@ var providerTestData = []struct {
 			test.NewMockDnsRecord(test.MockStateFQDN, 300, "TXT", "Testing123-TXT", nil),
 			test.NewMockDnsRecord(test.MockStateFQDN, 300, "A", "Testing123-A", nil),
 		},
-
 	},
 }
 
 /*
  * --- Tests ---
  */
-
 
 func testProvider(t *testing.T, provider Provider) {
 	var probe *Probe = provider.(MockProvider).Probe
@@ -79,5 +77,12 @@ func Test_MockProvider_Records(t *testing.T) {
 
 	if !reflect.DeepEqual(actual, dnsRecords) {
 		t.Errorf("MockProvider.{Set|Get}Records failed.")
+	}
+}
+
+func Test_BadMockProvider(t *testing.T) {
+	badProvider := NewBadMockProvider()
+	if _, err := badProvider.GetRecords(); err == nil {
+		t.Errorf("expected GetRecords() to return an error")
 	}
 }

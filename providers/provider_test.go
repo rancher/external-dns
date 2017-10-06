@@ -8,7 +8,6 @@ import (
  * --- Test Data ---
  */
 
-
 func TestRegisterProvider(t *testing.T) {
 	var provider Provider = NewMockProvider()
 

@@ -1,6 +1,9 @@
 package providers
 
-import "github.com/rancher/external-dns/utils"
+import (
+	"errors"
+	"github.com/rancher/external-dns/utils"
+)
 
 type Probe struct {
 	CountInit         int
@@ -59,8 +62,24 @@ func (m *MockProvider) SetRecords(dnsRecords []utils.DnsRecord) {
 	m.dnsRecords = dnsRecords
 }
 
+type BadMockProvider struct {
+	MockProvider
+	Probe *Probe
+}
+
+func (b BadMockProvider) GetRecords() ([]utils.DnsRecord, error) {
+	b.Probe.CountGetRecords++
+	return nil, errors.New("manual error for GetRecords negative test")
+}
+
 func NewMockProvider() MockProvider {
 	return MockProvider{
+		Probe: &Probe{},
+	}
+}
+
+func NewBadMockProvider() BadMockProvider {
+	return BadMockProvider{
 		Probe: &Probe{},
 	}
 }

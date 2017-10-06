@@ -1,8 +1,8 @@
 package test
 
 import (
-	"github.com/rancher/external-dns/utils"
 	"fmt"
+	"github.com/rancher/external-dns/utils"
 )
 
 var MockUUID = "a0a0aa00-aa0a-0a0a-aa00-000000aaa0a0"
@@ -29,10 +29,10 @@ func NewMockDnsRecord(fqdn string, ttl int, recType string, value string, record
 	}
 
 	return utils.DnsRecord{
-		Fqdn: fqdn,
+		Fqdn:    fqdn,
 		Records: dnsRecords(),
-		Type: recordType(),
-		TTL:  ttl,
+		Type:    recordType(),
+		TTL:     ttl,
 	}
 }
 
