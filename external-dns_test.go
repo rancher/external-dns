@@ -14,9 +14,11 @@ func Init() {
 	provider = nil
 }
 
-var metadata_example = test.NewMockMetaDataRecord("service-1", "stack-1", "example.com")
-var metadata_foo_example = test.NewMockMetaDataRecord("service-1", "stack-1", "foo.example.com")
-var dnsrecord_example = test.NewMockDnsRecord("example.com", 300, "TXT", "Testing123")
+var metadata_example = test.NewMockMetaDataRecord("service-1", "stack-1", "example.com", nil)
+var metadata_foo_example = test.NewMockMetaDataRecord("service-1", "stack-1", "foo.example.com", nil)
+var metadata_foo_bar_example = test.NewMockMetaDataRecord("service-1", "stack-1", "foo.bar.example.com", nil)
+var dnsrecord_example = test.NewMockDnsRecord("example.com", 300, "TXT", "Testing123", nil)
+var dnsrecord_foo_example = test.NewMockDnsRecord("foo.example.com", 300, "TXT", "Testing123-Foo", nil)
 
 /*
  * --- Test Data ---
@@ -46,19 +48,19 @@ var ensureUpgradeToState_testData = []struct {
 }{
 	{
 		[]utils.DnsRecord{
-			test.NewMockDnsRecord("", 300, "TXT", "Testing123-TXT"),
+			test.NewMockDnsRecord("", 300, "TXT", "Testing123-TXT", nil),
 		},
 		&providers.Probe{
 			CountGetRecords: 1,
 			CountSetRecords: 1,
 		},
 		[]utils.DnsRecord{
-			test.NewMockDnsRecord("", 300, "TXT", "Testing123-TXT"),
+			test.NewMockDnsRecord("", 300, "TXT", "Testing123-TXT", nil),
 		},
 	},
 	{
 		[]utils.DnsRecord{
-			test.NewMockDnsRecord(".test.", 300, "A", "Testing123-A"),
+			test.NewMockDnsRecord(".test.", 300, "A", "Testing123-A", nil),
 		},
 		&providers.Probe{
 			CountGetRecords: 1,
@@ -66,7 +68,7 @@ var ensureUpgradeToState_testData = []struct {
 			CountAddRecord:  1,
 		},
 		[]utils.DnsRecord{
-			test.NewMockDnsRecord(".test.", 300, "A", "Testing123-A"),
+			test.NewMockDnsRecord(".test.", 300, "A", "Testing123-A", nil),
 		},
 	},
 }
@@ -86,14 +88,137 @@ var getProviderDnsRecords_testData = []struct {
 	},
 	{
 		[]utils.DnsRecord{
-			test.NewMockDnsRecord(test.MockStateFQDN, 300, "TXT", "Testing123-TXT"),
-			test.NewMockDnsRecord(test.MockStateFQDN, 300, "A", "Testing123-A"),
+			test.NewMockDnsRecord(test.MockStateFQDN, 300, "TXT", "Testing123-TXT", nil),
+			test.NewMockDnsRecord(test.MockStateFQDN, 300, "A", "Testing123-A", nil),
 		},
 		map[string]utils.DnsRecord{
-			test.MockStateFQDN: test.NewMockDnsRecord(test.MockStateFQDN, 300, "A", "Testing123-A")},
+			test.MockStateFQDN: test.NewMockDnsRecord(test.MockStateFQDN, 300, "A", "Testing123-A", nil)},
 		map[string]utils.DnsRecord{
-			test.MockStateFQDN: test.NewMockDnsRecord(test.MockStateFQDN, 300, "A", "Testing123-A")},
+			test.MockStateFQDN: test.NewMockDnsRecord(test.MockStateFQDN, 300, "A", "Testing123-A", nil)},
 		nil,
+	},
+}
+
+var updateRecords_testData = []struct {
+	input_records []utils.MetadataDnsRecord
+	input_op      *Op
+	expected      []utils.MetadataDnsRecord
+	expected_probe         *providers.Probe
+} {
+	{
+		[]utils.MetadataDnsRecord{
+			metadata_example,
+		},
+		&Add,
+		[]utils.MetadataDnsRecord{
+			metadata_example,
+		},
+		&providers.Probe{
+			CountAddRecord: 1,
+			CountSetRecords: 1,
+		},
+	},
+	{
+		[]utils.MetadataDnsRecord{
+			metadata_example,
+		},
+		&Remove,
+		[]utils.MetadataDnsRecord{},
+		&providers.Probe{
+			CountRemoveRecord: 1,
+			CountSetRecords: 1,
+		},
+	},
+	{
+		[]utils.MetadataDnsRecord{
+			metadata_example,
+		},
+		&Update,
+		[]utils.MetadataDnsRecord{
+			metadata_example,
+		},
+		&providers.Probe{
+			CountUpdateRecord: 1,
+			CountSetRecords: 1,
+		},
+	},
+}
+
+var removeExtraRecords_testData = []struct {
+	providerSeed  []utils.DnsRecord
+	inputMeta     map[string]utils.MetadataDnsRecord
+	inputRecs     map[string]utils.DnsRecord
+	expected      []utils.MetadataDnsRecord
+	expectedProbe *providers.Probe
+} {
+	{
+		[]utils.DnsRecord{
+			dnsrecord_example,
+		},
+		map[string]utils.MetadataDnsRecord{
+			"foo.example.com": metadata_foo_example,
+		},
+		map[string]utils.DnsRecord{"example.com": dnsrecord_example},
+		[]utils.MetadataDnsRecord{}, // mock provider does nothing, but we'll check for probe
+		&providers.Probe{
+			CountRemoveRecord: 1,
+			CountSetRecords: 1,
+		},
+	},
+}
+
+var updateExistingRecords_testData = []struct {
+	providerSeed  []utils.DnsRecord
+	inputMeta     map[string]utils.MetadataDnsRecord
+	inputRecs     map[string]utils.DnsRecord
+	expected      []utils.MetadataDnsRecord
+	expectedProbe *providers.Probe
+} {
+	{ // test case is seeded with example, but we will pump in foo as a mock update, this should
+	  // hit the case where metadataR and providerR are the same and key inspection must occur
+		[]utils.DnsRecord{
+			dnsrecord_example,
+		},
+		map[string]utils.MetadataDnsRecord{
+			"example.com": metadata_example,
+		},
+		map[string]utils.DnsRecord{"example.com": dnsrecord_foo_example},
+		[]utils.MetadataDnsRecord{
+			metadata_example,
+		}, // update sends back 'changed'
+		&providers.Probe{
+			CountUpdateRecord: 1,
+			CountSetRecords: 1,
+		},
+	},
+	{ // test case is seeded with example, but we will pump in foo as a mock update, this should
+	  // hit the case where metadataR and providerR aren't the same
+		[]utils.DnsRecord{
+			dnsrecord_example,
+		},
+		map[string]utils.MetadataDnsRecord{
+			"example.com": test.NewMockMetaDataRecord("service-1", "stack-1", "example.com", []string{
+				"Testing123",
+				"example.com",
+				"foo.example.com",
+				"foo.bar.example.com",
+			}),
+		},
+		map[string]utils.DnsRecord{
+			"example.com": dnsrecord_example,
+		},
+		[]utils.MetadataDnsRecord{
+			test.NewMockMetaDataRecord("service-1", "stack-1", "example.com", []string{
+				"Testing123",
+				"example.com",
+				"foo.example.com",
+				"foo.bar.example.com",
+			}),
+		}, // update sends back 'changed'
+		&providers.Probe{
+			CountUpdateRecord: 1,
+			CountSetRecords: 1,
+		},
 	},
 }
 
@@ -122,57 +247,7 @@ func Test_addMissingRecords(t *testing.T) {
 	}
 }
 
-// updateRecords(toChange []utils.MetadataDnsRecord, op *Op) []utils.MetadataDnsRecord
-//	-> AddRecord
-//  -> RemoveRecord
-//  -> UpdateRecord
-
 func Test_updateRecords(t *testing.T) {
-	var updateRecords_testData = []struct {
-		input_records []utils.MetadataDnsRecord
-		input_op      *Op
-		expected      []utils.MetadataDnsRecord
-		expected_probe         *providers.Probe
-	} {
-		{
-			[]utils.MetadataDnsRecord{
-				metadata_example,
-			},
-			&Add,
-			[]utils.MetadataDnsRecord{
-				metadata_example,
-			},
-			&providers.Probe{
-				CountAddRecord: 1,
-				CountSetRecords: 1,
-			},
-		},
-		{
-			[]utils.MetadataDnsRecord{
-				metadata_example,
-			},
-			&Remove,
-			[]utils.MetadataDnsRecord{},
-			&providers.Probe{
-				CountRemoveRecord: 1,
-				CountSetRecords: 1,
-			},
-		},
-		{
-			[]utils.MetadataDnsRecord{
-				metadata_example,
-			},
-			&Update,
-			[]utils.MetadataDnsRecord{
-				metadata_example,
-			},
-			&providers.Probe{
-				CountUpdateRecord: 1,
-				CountSetRecords: 1,
-			},
-		},
-	}
-
 	var dnsRecords = []utils.DnsRecord{
 		dnsrecord_example,
 	}
@@ -199,27 +274,63 @@ func Test_updateRecords(t *testing.T) {
 	}
 }
 
-// updateExistingRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) []utils.MetadataDnsRecord
-//	-> UpdateRecords
+func Test_updateExistingRecords(t *testing.T) {
+	m = &metadata.MetadataClient{
+		EnvironmentName: "test",
+		EnvironmentUUID: test.MockUUID,
+		MetadataClient:  nil,
+	}
 
-// removeExtraRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) []utils.MetadataDnsRecord
-//	-> updateRecords
+	for idx, asset := range updateExistingRecords_testData {
+		Init()
+		mockProvider := registerMockProvider(asset.providerSeed)
+		probe := mockProvider.Probe
+		result := updateExistingRecords(asset.inputMeta, asset.inputRecs)
 
-//func Test_removeExtraRecords(t *testing.T) {
-//	var removeExtraRecords_testData = []struct {
-//		inputMeta  map[string]utils.MetadataDnsRecord
-//		inputRecs  map[string]utils.DnsRecord
-//		expected   []utils.MetadataDnsRecord
-//	} {
-//		{
-//
-//		},
-//	}
-//
-//	for idx, asset := range removeExtraRecords_testData {
-//
-//	}
-//}
+		if len(result) > 0 && !reflect.DeepEqual(result, asset.expected) {
+			// MockProvider methods are noop, if we get anything other than nil struct/types we have problems
+			t.Errorf("\nTest Data Index #%d, Expected: \n[%v], \ngot: \n[%v]", idx, asset.expected, result)
+		} else {
+			if !reflect.DeepEqual(probe, asset.expectedProbe) {
+				t.Errorf(
+					"Test Data Index #%d probe expected [%v], found [%v]",
+					idx,
+					asset.expectedProbe,
+					probe,
+				)
+			}
+		}
+	}
+}
+
+func Test_removeExtraRecords(t *testing.T) {
+	m = &metadata.MetadataClient{
+		EnvironmentName: "test",
+		EnvironmentUUID: test.MockUUID,
+		MetadataClient:  nil,
+	}
+
+	for idx, asset := range removeExtraRecords_testData {
+		Init()
+		mockProvider := registerMockProvider(asset.providerSeed)
+		probe := mockProvider.Probe
+		result := removeExtraRecords(asset.inputMeta, asset.inputRecs)
+
+		if len(result) > 0 && !reflect.DeepEqual(result, asset.expected) {
+			// MockProvider methods are noop, if we get anything other than nil struct/types we have problems
+			t.Errorf("\nTest Data Index #%d, Expected: \n[%v], \ngot: \n[%v]", idx, asset.expected, result)
+		} else {
+			if !reflect.DeepEqual(probe, asset.expectedProbe) {
+				t.Errorf(
+					"Test Data Index #%d probe expected [%v], found [%v]",
+					idx,
+					asset.expectedProbe,
+					probe,
+				)
+			}
+		}
+	}
+}
 
 func Test_getProviderDnsRecords(t *testing.T) {
 	// Mock environment

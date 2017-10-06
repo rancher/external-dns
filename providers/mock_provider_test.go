@@ -16,8 +16,8 @@ var providerTestData = []struct {
 		"Provider-1",
 		NewMockProvider(),
 		[]utils.DnsRecord{
-			test.NewMockDnsRecord(test.MockStateFQDN, 300, "TXT", "Testing123-TXT"),
-			test.NewMockDnsRecord(test.MockStateFQDN, 300, "A", "Testing123-A"),
+			test.NewMockDnsRecord(test.MockStateFQDN, 300, "TXT", "Testing123-TXT", nil),
+			test.NewMockDnsRecord(test.MockStateFQDN, 300, "A", "Testing123-A", nil),
 		},
 
 	},
@@ -70,7 +70,7 @@ func TestMockProvider(t *testing.T) {
 }
 
 func Test_MockProvider_Records(t *testing.T) {
-	dnsRecord := test.NewMockDnsRecord("example.com", 300, "TXT", "Testing123")
+	dnsRecord := test.NewMockDnsRecord("example.com", 300, "TXT", "Testing123", nil)
 	dnsRecords := []utils.DnsRecord{dnsRecord}
 
 	testProvider := NewMockProvider()
