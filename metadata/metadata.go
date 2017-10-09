@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"strings"
 	"time"
@@ -129,6 +130,8 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 			var externalIP string
 			if ip, ok := host.Labels["io.rancher.host.external_dns_ip"]; ok && len(ip) > 0 {
 				externalIP = ip
+			} else if schedulerIPs, ok := host.Labels["io.rancher.scheduler.ips"]; ok && len(schedulerIPs) > 0 {
+				externalIP = pickRandomSchedulerIP(schedulerIPs)
 			} else if len(container.Ports) > 0 {
 				if ip, ok := parsePortToIP(container.Ports[0]); ok {
 					externalIP = ip
@@ -223,4 +226,16 @@ func parsePortToIP(port string) (string, bool) {
 	}
 
 	return "", false
+}
+
+func pickRandomSchedulerIP(schedulerIPs string) string {
+	ips := strings.Split(schedulerIPs, ",")
+
+	if len(ips) == 1 {
+		return strings.TrimSpace(ips[0])
+	}
+
+	s := rand.NewSource(time.Now().Unix())
+	r := rand.New(s)
+	return strings.TrimSpace(ips[r.Intn(len(ips))])
 }
