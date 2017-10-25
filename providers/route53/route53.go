@@ -3,6 +3,7 @@ package route53
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
@@ -40,6 +41,15 @@ func (r *Route53Provider) Init(rootDomainName string) error {
 	// clients using the same account the AWS SDK will throttle the
 	// requests automatically if the global rate limit is exhausted.
 	r.limiter = ratelimit.NewBucketWithRate(5.0, 1)
+
+	if envVal := os.Getenv("ROUTE53_MAX_RETRIES"); envVal != "" {
+		i, err := strconv.Atoi(envVal)
+		if err == nil {
+			route53MaxRetries = i
+		} else {
+			logrus.Warnf("Invalid value for ROUTE53_MAX_RETRIES. Using default.")
+		}
+	}
 
 	creds := credentials.NewChainCredentials(
 		[]credentials.Provider{
