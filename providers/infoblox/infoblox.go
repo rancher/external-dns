@@ -116,7 +116,11 @@ func (*InfobloxProvider) GetName() string {
 }
 
 func (d *InfobloxProvider) HealthCheck() error {
-	_, err := d.client.RecordHost().All(nil)
+	maxResults := 1
+	opts := &api.Options{
+		MaxResults: &maxResults,
+	}
+	_, err := d.client.RecordHost().All(opts)
 	return err
 }
 
