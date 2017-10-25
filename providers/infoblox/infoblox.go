@@ -142,7 +142,7 @@ func (d *InfobloxProvider) AddRecord(record utils.DnsRecord) (err error) {
 
 func (d *InfobloxProvider) findRecords(record utils.DnsRecord) ([]*Record, error) {
 	var records []*Record
-	url := recordURL + ":" + strings.ToLower(record.Type) + "?name=" + utils.UnFqdn(record.Fqdn)
+	url := recordURL + ":" + strings.ToLower(record.Type) + "?name=" + utils.UnFqdn(record.Fqdn) + "&zone=" + d.zoneName
 	res, err := d.client.SendRequest("GET", url, "", head)
 	if err != nil {
 		return records, fmt.Errorf("Infoblox API call has failed: %v", err)
@@ -178,7 +178,7 @@ func (d *InfobloxProvider) RemoveRecord(record utils.DnsRecord) error {
 
 func (d *InfobloxProvider) GetRecords() ([]utils.DnsRecord, error) {
 	var records []utils.DnsRecord
-	res, err := d.client.SendRequest("GET", recordAURL+"?"+recordAQuery, "", head)
+	res, err := d.client.SendRequest("GET", recordAURL+"?"+recordAQuery+"&zone="+d.zoneName, "", head)
 	if err != nil {
 		return records, fmt.Errorf("Infoblox API call has failed: %v", err)
 	}
@@ -187,7 +187,7 @@ func (d *InfobloxProvider) GetRecords() ([]utils.DnsRecord, error) {
 		return records, fmt.Errorf("Infoblox API call decode has failed: %v", err)
 	}
 
-	res2, err := d.client.SendRequest("GET", recordTxtURL+"?"+recordTxtQuery, "", head)
+	res2, err := d.client.SendRequest("GET", recordTxtURL+"?"+recordTxtQuery+"&zone="+d.zoneName, "", head)
 	if err != nil {
 		return records, fmt.Errorf("Infoblox API call has failed: %v", err)
 	}
