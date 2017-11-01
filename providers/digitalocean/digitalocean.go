@@ -9,10 +9,10 @@ import (
 	api "github.com/digitalocean/godo"
 	"golang.org/x/oauth2"
 
+	"context"
 	"github.com/juju/ratelimit"
 	"github.com/rancher/external-dns/providers"
 	"github.com/rancher/external-dns/utils"
-	"context"
 )
 
 type DigitalOceanProvider struct {
@@ -90,7 +90,7 @@ func (p *DigitalOceanProvider) AddRecord(record utils.DnsRecord) error {
 		createRequest := &api.DomainRecordEditRequest{
 			Type: record.Type,
 			Name: record.Fqdn,
-			TTL: record.TTL,
+			TTL:  record.TTL,
 			Data: r,
 		}
 
