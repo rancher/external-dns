@@ -207,11 +207,12 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 	}
 
 	for _, rrSet := range rrSets {
-		// skip proprietary Route 53 alias resource record sets
-		if rrSet.AliasTarget != nil {
-			logrus.Debug("Skipped Route53 alias RRset")
+		// skip proprietary Route 53 resource record sets
+		if IsProprietary(rrSet) {
+			logrus.Debugf("skipped properietary rrSet: %s", rrSet)
 			continue
 		}
+
 		records := []string{}
 		for _, rr := range rrSet.ResourceRecords {
 			value := *rr.Value
@@ -220,6 +221,9 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 			}
 			records = append(records, value)
 		}
+
+		logrus.Debugf("rrSet: %s", rrSet)
+		logrus.Debugf("records: %s", records)
 
 		dnsRecord := utils.DnsRecord{
 			Fqdn:    *rrSet.Name,
@@ -231,4 +235,8 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 	}
 
 	return dnsRecords, nil
+}
+
+func IsProprietary(rr *awsRoute53.ResourceRecordSet) bool {
+	return (rr.AliasTarget != nil || rr.TrafficPolicyInstanceId != nil)
 }
