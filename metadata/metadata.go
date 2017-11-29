@@ -156,14 +156,51 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 
 			addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries, "A")
 			ourFqdns[fqdn] = struct{}{}
+
+			//Proper place to add CNAMEs for load balancer services to route requested hostnames
+			//to the actual service
+			if service.Kind == "loadBalancerService" {
+				parentFQDN = fqdn
+				for _, portRule := range service.LBConfig.PortRules {
+					for _, container := range service.Containers {
+						if portRule.Hostname != "" { 
+							requestedHostname = portrule.Hostname
+						}
+						else{
+							continue
+						}
+
+						//Checks regex to see if there is a wildcard at the end of the requested hostname
+						//EX: host.*
+						//If there is, append our root domain name to it and add a . to make it Fqdn
+						if matched, err := regexp.MatchString("\\.\\*$", hostName); err != nil {
+							logrus.Warnf("Regex matching error: %v", err)
+							continue
+						} else if matched {
+							hostName = strings.TrimRight(hostName, "\\*")
+							hostName = strings.TrimRight(hostName, "\\.")
+							fqdn := hostName + "." + config.RootDomainName
+						} else {
+							fqdn := utils.FqdnFromTemplate(nameTemplate, hostName, service.StackName,
+								m.EnvironmentName, config.RootDomainName)
+						}
+						addToDnsEntries(fqdn, parentFQDN, container.ServiceName, container.StackName, dnsEntries, "CNAME")
+						ourFqdns[fqdn] = struct{}{}
+				}
+			}
 		}
 		
+		/*
 		//Checks specifically for load balancers to correctly route requested hostnames
 		//to the proper places.
 		if service.Kind == "loadBalancerService" {
 			for _, portRule := range service.LBConfig.PortRules{
 				for _, container := range service.Containers {
 					hostName := portRule.Hostname 
+					
+					if hostName == "" {
+						continue
+					}
 
 					nameTemplate, ok := service.Labels["io.rancher.service.external_dns_name_template"]
 					if !ok {
@@ -223,7 +260,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 					}
 				}
 			}
-		}
+		}*/
 	}
 
 	if len(ourFqdns) > 0 {
@@ -253,19 +290,11 @@ func addToDnsEntries(fqdn, ip, service, stack string, dnsEntries map[string]util
 		}
 		records = append(records, ip)
 	}
-	if entryType == "A"{
-		dnsEntries[fqdn] = utils.MetadataDnsRecord{
-			ServiceName: service,
-			StackName:   stack,
-			DnsRecord:   utils.DnsRecord{fqdn, records, entryType, config.TTL},
-		}
-	} /*else if entryType == "CNAME" {
-		dnsEntries[fqdn] = utils.MetadataDnsRecord{
-			ServiceName: service,
-			StackName:   stack,
-			DnsRecord:   utils.DnsRecord{fqdn, records, entryType, nil},
-		}
-	}*/
+	dnsEntries[fqdn] = utils.MetadataDnsRecord{
+		ServiceName: service,
+		StackName:   stack,
+		DnsRecord:   utils.DnsRecord{fqdn, records, entryType, config.TTL},
+	}
 }
 
 func containerStateOK(container metadata.Container) bool {
