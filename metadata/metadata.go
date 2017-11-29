@@ -160,32 +160,32 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 			//Proper place to add CNAMEs for load balancer services to route requested hostnames
 			//to the actual service
 			if service.Kind == "loadBalancerService" {
-				parentFQDN = fqdn
+				parentFQDN := fqdn
 				for _, portRule := range service.LBConfig.PortRules {
 					for _, container := range service.Containers {
-						if portRule.Hostname != "" { 
-							requestedHostname = portrule.Hostname
-						}
-						else{
+						requestedHostname := portRule.Hostname
+						if requestedHostname == "" {
 							continue
 						}
-
+						
+						fqdn = ""
 						//Checks regex to see if there is a wildcard at the end of the requested hostname
 						//EX: host.*
 						//If there is, append our root domain name to it and add a . to make it Fqdn
-						if matched, err := regexp.MatchString("\\.\\*$", hostName); err != nil {
+						if matched, err := regexp.MatchString("\\.\\*$", requestedHostname); err != nil {
 							logrus.Warnf("Regex matching error: %v", err)
 							continue
 						} else if matched {
-							hostName = strings.TrimRight(hostName, "\\*")
-							hostName = strings.TrimRight(hostName, "\\.")
-							fqdn := hostName + "." + config.RootDomainName
+							requestedHostname = strings.TrimRight(requestedHostname, "\\*")
+							requestedHostname = strings.TrimRight(requestedHostname, "\\.")
+							fqdn = requestedHostname + "." + config.RootDomainName
 						} else {
-							fqdn := utils.FqdnFromTemplate(nameTemplate, hostName, service.StackName,
+							fqdn = utils.FqdnFromTemplate(nameTemplate, requestedHostname, service.StackName,
 								m.EnvironmentName, config.RootDomainName)
 						}
 						addToDnsEntries(fqdn, parentFQDN, container.ServiceName, container.StackName, dnsEntries, "CNAME")
 						ourFqdns[fqdn] = struct{}{}
+					}
 				}
 			}
 		}
