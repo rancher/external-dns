@@ -190,6 +190,72 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 				}
 			}
 		}
+
+		//Checks specifically for load balancers to correctly route requested hostnames
+		//to the proper places.
+		if service.Kind == "loadBalancerService" {
+			for _, portRule := range service.LBConfig.PortRules{
+				for _, container := range service.Containers {
+					hostName := portRule.Hostname 
+
+					nameTemplate, ok := service.Labels["io.rancher.service.external_dns_name_template"]
+					if !ok {
+						nameTemplate = config.NameTemplate
+					}
+
+					hostUUID := container.HostUUID
+					if len(hostUUID) == 0 {
+						logrus.Debugf("Container's %v host_uuid is empty", container.Name)
+						continue
+					}
+
+					var host metadata.Host
+					if _, ok := hostMeta[hostUUID]; ok {
+						host = hostMeta[hostUUID]
+					} else {
+						host, err = m.MetadataClient.GetHost(hostUUID)
+						if err != nil {
+							logrus.Warnf("Failed to get host metadata: %v", err)
+							continue
+						}
+						hostMeta[hostUUID] = host
+					}
+
+					var externalIP string
+					if ip, ok := host.Labels["io.rancher.host.external_dns_ip"]; ok && len(ip) > 0 {
+						externalIP = ip
+					} else if len(container.Ports) > 0 {
+						if ip, ok := parsePortToIP(container.Ports[0]); ok {
+							externalIP = ip
+						}
+					}
+
+					if len(externalIP) == 0 {
+						logrus.Debugf("Fallback to host.AgentIP %s for container %s", host.AgentIP, container.Name)
+						externalIP = host.AgentIP
+					}
+					//Checks regex to see if there is a wildcard at the end of the requested hostname
+					//EX: host.*
+					//If there is, append our root domain name to it and add a . to make it Fqdn
+					if matched, err := regexp.MatchString("\\.\\*$", hostName); matched {
+						hostName = strings.TrimRight(hostName, "\\*")
+						hostName = strings.TrimRight(hostName, "\\.")
+						fqdn := hostName + "." + config.RootDomainName
+						addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries)
+						ourFqdns[fqdn] = struct{}{}
+					} else if err != nil {
+						logrus.Warnf("Regex matching error: %v", err)
+					//Appends domain name to requested hostname, substituting - for .
+					} else {
+						hostName = strings.TrimRight(hostName, "\\.")
+						fqdn := utils.FqdnFromTemplate(nameTemplate, hostName, service.StackName,
+							m.EnvironmentName, config.RootDomainName)
+						addToDnsEntries(fqdn, externalIP, container.ServiceName, container.StackName, dnsEntries)
+						ourFqdns[fqdn] = struct{}{}
+					}
+				}
+			}
+		}
 	}
 
 	if len(ourFqdns) > 0 {
