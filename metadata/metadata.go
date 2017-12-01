@@ -164,15 +164,15 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 				for _, portRule := range service.LBConfig.PortRules {
 					for _, container := range service.Containers {
 						requestedHostname := portRule.Hostname
-						if requestedHostname == "" {
-							continue
-						}
 						
 						fqdn = ""
 						//Checks regex to see if there is a wildcard at the end of the requested hostname
 						//EX: host.*
 						//If there is, append our root domain name to it and add a . to make it Fqdn
-						if matched, err := regexp.MatchString("\\.\\*$", requestedHostname); err != nil {
+						if requestedHostname == ""{
+							fqdn := utils.FqdnFromTemplate(nameTemplate, container.ServiceName, container.StackName,
+								m.EnvironmentName, config.RootDomainName)
+						} else if matched, err := regexp.MatchString("\\.\\*$", requestedHostname); err != nil {
 							logrus.Warnf("Regex matching error: %v", err)
 							continue
 						} else if matched {
