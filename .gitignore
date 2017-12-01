@@ -6,3 +6,4 @@ external-dns
 /dist
 *.swp
 /.trash-cache
+.vscode
