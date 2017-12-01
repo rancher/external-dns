@@ -164,7 +164,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 				for _, portRule := range service.LBConfig.PortRules {
 					for _, container := range service.Containers {
 						requestedHostname := portRule.Hostname
-						
+
 						fqdn = ""
 						//Checks regex to see if there is a wildcard at the end of the requested hostname
 						//EX: host.*
