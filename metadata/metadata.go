@@ -178,7 +178,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 						} else if matched {
 							requestedHostname = strings.TrimRight(requestedHostname, "\\*")
 							requestedHostname = strings.TrimRight(requestedHostname, "\\.")
-							requestedHostname = utils.sanatizeLabel(requestedHostname)
+							requestedHostname = utils.sanitizeLabel(requestedHostname)
 							fqdn = requestedHostname + "." + config.RootDomainName
 						} else {
 							fqdn = utils.FqdnFromTemplate(nameTemplate, requestedHostname, service.StackName,
