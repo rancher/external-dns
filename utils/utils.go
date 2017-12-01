@@ -59,11 +59,11 @@ func FqdnFromTemplate(template, serviceName, stackName, environmentName, rootDom
 	fqdn := t.ExecuteFuncString(func(w io.Writer, tag string) (int, error) {
 		switch tag {
 		case "service_name":
-			return w.Write([]byte(sanitizeLabel(serviceName)))
+			return w.Write([]byte(SanitizeLabel(serviceName)))
 		case "stack_name":
-			return w.Write([]byte(sanitizeLabel(stackName)))
+			return w.Write([]byte(SanitizeLabel(stackName)))
 		case "environment_name":
-			return w.Write([]byte(sanitizeLabel(environmentName)))
+			return w.Write([]byte(SanitizeLabel(environmentName)))
 		default:
 			return 0, fmt.Errorf("invalid placeholder '%q' in fqdn template", tag)
 		}
@@ -89,10 +89,10 @@ func StateRecord(fqdn string, ttl int, entries map[string]struct{}) DnsRecord {
 	return DnsRecord{fqdn, records, "TXT", ttl}
 }
 
-// sanitizeLabel replaces characters that are not allowed in DNS labels with dashes.
+// SanitizeLabel replaces characters that are not allowed in DNS labels with dashes.
 // According to RFC 1123 the only characters allowed in DNS labels are A-Z, a-z, 0-9
 // and dashes ("-"). The latter must not appear at the start or end of a label.
-func sanitizeLabel(label string) string {
+func SanitizeLabel(label string) string {
 	re := regexp.MustCompile("[^a-zA-Z0-9-]")
 	dashes := regexp.MustCompile("[-]+")
 	label = re.ReplaceAllString(label, "-")
