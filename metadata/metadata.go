@@ -170,7 +170,7 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 						//EX: host.*
 						//If there is, append our root domain name to it and add a . to make it Fqdn
 						if requestedHostname == ""{
-							fqdn := utils.FqdnFromTemplate(nameTemplate, container.ServiceName, container.StackName,
+							fqdn = utils.FqdnFromTemplate(nameTemplate, container.ServiceName, container.StackName,
 								m.EnvironmentName, config.RootDomainName)
 						} else if matched, err := regexp.MatchString("\\.\\*$", requestedHostname); err != nil {
 							logrus.Warnf("Regex matching error: %v", err)
