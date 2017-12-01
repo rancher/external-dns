@@ -166,6 +166,15 @@ func getProviderDnsRecords() (map[string]utils.DnsRecord, map[string]utils.DnsRe
 		}
 	}
 
+	for _, rec := range providerRecords {
+		if rec.Type == "CNAME" {
+			allRecords[rec.Fqdn] = rec
+			if _, ok := ourFqdns[rec.Fqdn]; ok {
+				ourRecords[rec.Fqdn] = rec
+			}
+		}
+	}
+
 	if stateRec, ok := ourRecords[stateFqdn]; ok {
 		allRecords[stateFqdn] = stateRec
 	}
