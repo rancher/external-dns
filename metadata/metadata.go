@@ -61,8 +61,12 @@ func (m *MetadataClient) GetVersion() (string, error) {
 }
 
 func (m *MetadataClient) GetMetadataDnsRecords() (map[string]utils.MetadataDnsRecord, error) {
+	err := m.updateEnvironmentName()
+	if err != nil {
+		return nil, err
+	}
 	dnsEntries := make(map[string]utils.MetadataDnsRecord)
-	err := m.getContainersDnsRecords(dnsEntries)
+	err = m.getContainersDnsRecords(dnsEntries)
 	if err != nil {
 		return dnsEntries, err
 	}
@@ -166,6 +170,18 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 			StackName:   "",
 			DnsRecord:   stateRec,
 		}
+	}
+
+	return nil
+}
+
+func (m *MetadataClient) updateEnvironmentName() error {
+	envName, _, err := getEnvironment(m.MetadataClient)
+	if err != nil {
+		logrus.Errorf("Failed to get environment info: %v", err)
+		return err
+	} else {
+		m.EnvironmentName = envName
 	}
 
 	return nil
