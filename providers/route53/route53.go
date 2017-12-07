@@ -3,6 +3,7 @@ package route53
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
@@ -40,6 +41,15 @@ func (r *Route53Provider) Init(rootDomainName string) error {
 	// clients using the same account the AWS SDK will throttle the
 	// requests automatically if the global rate limit is exhausted.
 	r.limiter = ratelimit.NewBucketWithRate(5.0, 1)
+
+	if envVal := os.Getenv("ROUTE53_MAX_RETRIES"); envVal != "" {
+		i, err := strconv.Atoi(envVal)
+		if err == nil {
+			route53MaxRetries = i
+		} else {
+			logrus.Warnf("Invalid value for ROUTE53_MAX_RETRIES. Using default.")
+		}
+	}
 
 	creds := credentials.NewChainCredentials(
 		[]credentials.Provider{
@@ -197,11 +207,12 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 	}
 
 	for _, rrSet := range rrSets {
-		// skip proprietary Route 53 alias resource record sets
-		if rrSet.AliasTarget != nil {
-			logrus.Debug("Skipped Route53 alias RRset")
+		// skip proprietary Route 53 resource record sets
+		if IsProprietary(rrSet) {
+			logrus.Debugf("skipped properietary rrSet: %s", rrSet)
 			continue
 		}
+
 		records := []string{}
 		for _, rr := range rrSet.ResourceRecords {
 			value := *rr.Value
@@ -210,6 +221,9 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 			}
 			records = append(records, value)
 		}
+
+		logrus.Debugf("rrSet: %s", rrSet)
+		logrus.Debugf("records: %s", records)
 
 		dnsRecord := utils.DnsRecord{
 			Fqdn:    *rrSet.Name,
@@ -221,4 +235,8 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 	}
 
 	return dnsRecords, nil
+}
+
+func IsProprietary(rr *awsRoute53.ResourceRecordSet) bool {
+	return (rr.AliasTarget != nil || rr.TrafficPolicyInstanceId != nil)
 }
