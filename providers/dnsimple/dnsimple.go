@@ -147,7 +147,7 @@ func (d *DNSimpleProvider) GetRecords() ([]utils.DnsRecord, error) {
 	var records []utils.DnsRecord
 
 	d.limiter.Wait(1)
-	recordResp, _, err := d.client.Domains.ListRecords(d.root, "", "")
+	recordsResponse, err := d.client2.Zones.ListRecords(d.accountID, d.root, nil)
 	if err != nil {
 		return records, fmt.Errorf("DNSimple API call has failed: %v", err)
 	}
@@ -155,28 +155,28 @@ func (d *DNSimpleProvider) GetRecords() ([]utils.DnsRecord, error) {
 	recordMap := map[string]map[string][]string{}
 	recordTTLs := map[string]map[string]int{}
 
-	for _, rec := range recordResp {
+	for _, zoneRecord := range recordsResponse.Data {
 		var fqdn string
-		if rec.Name == "" {
+		if zoneRecord.Name == "" {
 			fqdn = d.root + "."
 		} else {
-			fqdn = fmt.Sprintf("%s.%s.", rec.Name, d.root)
+			fqdn = fmt.Sprintf("%s.%s.", zoneRecord.Name, d.root)
 		}
 
 		recordTTLs[fqdn] = map[string]int{}
-		recordTTLs[fqdn][rec.Type] = rec.TTL
+		recordTTLs[fqdn][zoneRecord.Type] = zoneRecord.TTL
 		recordSet, exists := recordMap[fqdn]
 		if exists {
-			recordSlice, sliceExists := recordSet[rec.Type]
+			recordSlice, sliceExists := recordSet[zoneRecord.Type]
 			if sliceExists {
-				recordSlice = append(recordSlice, rec.Content)
-				recordSet[rec.Type] = recordSlice
+				recordSlice = append(recordSlice, zoneRecord.Content)
+				recordSet[zoneRecord.Type] = recordSlice
 			} else {
-				recordSet[rec.Type] = []string{rec.Content}
+				recordSet[zoneRecord.Type] = []string{zoneRecord.Content}
 			}
 		} else {
 			recordMap[fqdn] = map[string][]string{}
-			recordMap[fqdn][rec.Type] = []string{rec.Content}
+			recordMap[fqdn][zoneRecord.Type] = []string{zoneRecord.Content}
 		}
 	}
 
