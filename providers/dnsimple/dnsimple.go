@@ -82,14 +82,14 @@ func (d *DNSimpleProvider) parseName(record utils.DnsRecord) string {
 func (d *DNSimpleProvider) AddRecord(record utils.DnsRecord) error {
 	name := d.parseName(record)
 	for _, rec := range record.Records {
-		recordInput := api.Record{
+		recordInput := dnsimple.ZoneRecord{
 			Name:    name,
 			TTL:     record.TTL,
 			Type:    record.Type,
 			Content: rec,
 		}
 		d.limiter.Wait(1)
-		_, _, err := d.client.Domains.CreateRecord(d.root, recordInput)
+		_, err := d.client2.Zones.CreateRecord(d.accountID, d.root, recordInput)
 		if err != nil {
 			return fmt.Errorf("DNSimple API call has failed: %v", err)
 		}
