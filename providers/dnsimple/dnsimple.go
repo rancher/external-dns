@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/dnsimple/dnsimple-go/dnsimple"
 	"github.com/juju/ratelimit"
 	"github.com/rancher/external-dns/providers"
 	"github.com/rancher/external-dns/utils"
@@ -14,6 +15,7 @@ import (
 
 type DNSimpleProvider struct {
 	client  *api.Client
+	client2 *dnsimple.Client
 	root    string
 	limiter *ratelimit.Bucket
 }
@@ -23,7 +25,8 @@ func init() {
 }
 
 func (d *DNSimpleProvider) Init(rootDomainName string) error {
-	var email, apiToken string
+	var email, apiToken, oauthToken string
+
 	if email = os.Getenv("DNSIMPLE_EMAIL"); len(email) == 0 {
 		return fmt.Errorf("DNSIMPLE_EMAIL is not set")
 	}
@@ -32,8 +35,13 @@ func (d *DNSimpleProvider) Init(rootDomainName string) error {
 		return fmt.Errorf("DNSIMPLE_TOKEN is not set")
 	}
 
+	if oauthToken = os.Getenv("DNSIMPLE_TOKEN"); len(oauthToken) == 0 {
+		return fmt.Errorf("DNSIMPLE_TOKEN is not set")
+	}
+
 	d.root = utils.UnFqdn(rootDomainName)
 	d.client = api.NewClient(apiToken, email)
+	d.client2 = dnsimple.NewClient(dnsimple.NewOauthTokenCredentials(oauthToken))
 	d.limiter = ratelimit.NewBucketWithRate(1.5, 5)
 
 	domains, _, err := d.client.Domains.List()
@@ -63,7 +71,7 @@ func (*DNSimpleProvider) GetName() string {
 
 func (d *DNSimpleProvider) HealthCheck() error {
 	d.limiter.Wait(1)
-	_, _, err := d.client.Users.User()
+	_, err := d.client2.Identity.Whoami()
 	return err
 }
 
