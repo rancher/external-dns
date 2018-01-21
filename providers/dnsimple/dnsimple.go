@@ -3,6 +3,7 @@ package dnsimple
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
@@ -14,10 +15,11 @@ import (
 )
 
 type DNSimpleProvider struct {
-	client  *api.Client
-	client2 *dnsimple.Client
-	root    string
-	limiter *ratelimit.Bucket
+	client    *api.Client
+	client2   *dnsimple.Client
+	accountID string
+	root      string
+	limiter   *ratelimit.Bucket
 }
 
 func init() {
@@ -44,21 +46,18 @@ func (d *DNSimpleProvider) Init(rootDomainName string) error {
 	d.client2 = dnsimple.NewClient(dnsimple.NewOauthTokenCredentials(oauthToken))
 	d.limiter = ratelimit.NewBucketWithRate(1.5, 5)
 
-	domains, _, err := d.client.Domains.List()
+	whoamiResponse, err := d.client2.Identity.Whoami()
 	if err != nil {
-		return fmt.Errorf("Failed to list zones: %v", err)
+		return fmt.Errorf("DNSimple Authentication failed: %v", err)
 	}
-
-	found := false
-	for _, domain := range domains {
-		if domain.Name == d.root {
-			found = true
-			break
-		}
+	if whoamiResponse.Data.Account == nil {
+		return fmt.Errorf("DNSimple User tokens are not supported, use an Account token")
 	}
+	d.accountID = strconv.Itoa(whoamiResponse.Data.Account.ID)
 
-	if !found {
-		return fmt.Errorf("Zone for '%s' not found", d.root)
+	_, err = d.client2.Zones.GetZone(d.accountID, d.root)
+	if err != nil {
+		return fmt.Errorf("Failed to get zone for '%s': %v", d.root)
 	}
 
 	logrus.Infof("Configured %s with zone '%s'", d.GetName(), d.root)
