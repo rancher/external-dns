@@ -134,7 +134,7 @@ func (d *DNSimpleProvider) RemoveRecord(record utils.DnsRecord) error {
 
 	for _, rec := range records {
 		d.limiter.Wait(1)
-		_, err := d.client.Domains.DeleteRecord(d.root, rec.Id)
+		_, err := d.client2.Zones.DeleteRecord(d.accountID, d.root, rec.Id)
 		if err != nil {
 			return fmt.Errorf("DNSimple API call has failed: %v", err)
 		}
