@@ -56,7 +56,7 @@ func (d *PdnsProvider) HealthCheck() error {
 
 // utils.DnsRecord.Fqdn has a trailing. | powerdns.Record.Name doesn't
 func (d *PdnsProvider) parseName(record utils.DnsRecord) string {
-	return utils.UnFqdn(record.Fqdn)
+	return utils.Fqdn(record.Fqdn)
 }
 
 func (d *PdnsProvider) AddRecord(record utils.DnsRecord) error {
