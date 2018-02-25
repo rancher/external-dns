@@ -15,6 +15,7 @@ import (
 	_ "github.com/rancher/external-dns/providers/digitalocean"
 	_ "github.com/rancher/external-dns/providers/dnsimple"
 	_ "github.com/rancher/external-dns/providers/gandi"
+	_ "github.com/rancher/external-dns/providers/googledns"
 	_ "github.com/rancher/external-dns/providers/infoblox"
 	_ "github.com/rancher/external-dns/providers/pointhq"
 	_ "github.com/rancher/external-dns/providers/powerdns"
