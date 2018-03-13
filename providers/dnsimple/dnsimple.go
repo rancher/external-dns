@@ -3,21 +3,19 @@ package dnsimple
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/dnsimple/dnsimple-go/dnsimple"
 	"github.com/juju/ratelimit"
 	"github.com/rancher/external-dns/providers"
 	"github.com/rancher/external-dns/utils"
+	api "github.com/weppos/go-dnsimple/dnsimple"
 )
 
 type DNSimpleProvider struct {
-	client    *dnsimple.Client
-	accountID string
-	root      string
-	limiter   *ratelimit.Bucket
+	client  *api.Client
+	root    string
+	limiter *ratelimit.Bucket
 }
 
 func init() {
@@ -25,32 +23,34 @@ func init() {
 }
 
 func (d *DNSimpleProvider) Init(rootDomainName string) error {
-	var oauthToken string
-
-	if len(os.Getenv("DNSIMPLE_EMAIL")) > 0 {
-		return fmt.Errorf("DNSimple API v2 requires an account identifier and the new OAuth token. Please upgrade your configuration.")
+	var email, apiToken string
+	if email = os.Getenv("DNSIMPLE_EMAIL"); len(email) == 0 {
+		return fmt.Errorf("DNSIMPLE_EMAIL is not set")
 	}
 
-	if oauthToken = os.Getenv("DNSIMPLE_TOKEN"); len(oauthToken) == 0 {
+	if apiToken = os.Getenv("DNSIMPLE_TOKEN"); len(apiToken) == 0 {
 		return fmt.Errorf("DNSIMPLE_TOKEN is not set")
 	}
 
 	d.root = utils.UnFqdn(rootDomainName)
-	d.client = dnsimple.NewClient(dnsimple.NewOauthTokenCredentials(oauthToken))
+	d.client = api.NewClient(apiToken, email)
 	d.limiter = ratelimit.NewBucketWithRate(1.5, 5)
 
-	whoamiResponse, err := d.client.Identity.Whoami()
+	domains, _, err := d.client.Domains.List()
 	if err != nil {
-		return fmt.Errorf("DNSimple Authentication failed: %v", err)
+		return fmt.Errorf("Failed to list zones: %v", err)
 	}
-	if whoamiResponse.Data.Account == nil {
-		return fmt.Errorf("DNSimple User tokens are not supported, use an Account token")
-	}
-	d.accountID = strconv.Itoa(whoamiResponse.Data.Account.ID)
 
-	_, err = d.client.Zones.GetZone(d.accountID, d.root)
-	if err != nil {
-		return fmt.Errorf("Failed to get zone for '%s': %v", d.root)
+	found := false
+	for _, domain := range domains {
+		if domain.Name == d.root {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("Zone for '%s' not found", d.root)
 	}
 
 	logrus.Infof("Configured %s with zone '%s'", d.GetName(), d.root)
@@ -63,7 +63,7 @@ func (*DNSimpleProvider) GetName() string {
 
 func (d *DNSimpleProvider) HealthCheck() error {
 	d.limiter.Wait(1)
-	_, err := d.client.Identity.Whoami()
+	_, _, err := d.client.Users.User()
 	return err
 }
 
@@ -75,14 +75,14 @@ func (d *DNSimpleProvider) parseName(record utils.DnsRecord) string {
 func (d *DNSimpleProvider) AddRecord(record utils.DnsRecord) error {
 	name := d.parseName(record)
 	for _, rec := range record.Records {
-		recordInput := dnsimple.ZoneRecord{
+		recordInput := api.Record{
 			Name:    name,
 			TTL:     record.TTL,
 			Type:    record.Type,
 			Content: rec,
 		}
 		d.limiter.Wait(1)
-		_, err := d.client.Zones.CreateRecord(d.accountID, d.root, recordInput)
+		_, _, err := d.client.Domains.CreateRecord(d.root, recordInput)
 		if err != nil {
 			return fmt.Errorf("DNSimple API call has failed: %v", err)
 		}
@@ -91,23 +91,23 @@ func (d *DNSimpleProvider) AddRecord(record utils.DnsRecord) error {
 	return nil
 }
 
-func (d *DNSimpleProvider) findRecords(record utils.DnsRecord) ([]dnsimple.ZoneRecord, error) {
-	var zoneRecords []dnsimple.ZoneRecord
+func (d *DNSimpleProvider) findRecords(record utils.DnsRecord) ([]api.Record, error) {
+	var records []api.Record
 
 	d.limiter.Wait(1)
-	recordsResponse, err := d.client.Zones.ListRecords(d.accountID, d.root, nil)
+	resp, _, err := d.client.Domains.ListRecords(d.root, "", "")
 	if err != nil {
-		return zoneRecords, fmt.Errorf("DNSimple API call has failed: %v", err)
+		return records, fmt.Errorf("DNSimple API call has failed: %v", err)
 	}
 
 	name := d.parseName(record)
-	for _, zoneRecord := range recordsResponse.Data {
-		if zoneRecord.Name == name && zoneRecord.Type == record.Type {
-			zoneRecords = append(zoneRecords, zoneRecord)
+	for _, rec := range resp {
+		if rec.Name == name && rec.Type == record.Type {
+			records = append(records, rec)
 		}
 	}
 
-	return zoneRecords, nil
+	return records, nil
 }
 
 func (d *DNSimpleProvider) UpdateRecord(record utils.DnsRecord) error {
@@ -120,14 +120,14 @@ func (d *DNSimpleProvider) UpdateRecord(record utils.DnsRecord) error {
 }
 
 func (d *DNSimpleProvider) RemoveRecord(record utils.DnsRecord) error {
-	zoneRecords, err := d.findRecords(record)
+	records, err := d.findRecords(record)
 	if err != nil {
 		return err
 	}
 
-	for _, zoneRecord := range zoneRecords {
+	for _, rec := range records {
 		d.limiter.Wait(1)
-		_, err := d.client.Zones.DeleteRecord(d.accountID, d.root, zoneRecord.ID)
+		_, err := d.client.Domains.DeleteRecord(d.root, rec.Id)
 		if err != nil {
 			return fmt.Errorf("DNSimple API call has failed: %v", err)
 		}
@@ -140,7 +140,7 @@ func (d *DNSimpleProvider) GetRecords() ([]utils.DnsRecord, error) {
 	var records []utils.DnsRecord
 
 	d.limiter.Wait(1)
-	recordsResponse, err := d.client.Zones.ListRecords(d.accountID, d.root, nil)
+	recordResp, _, err := d.client.Domains.ListRecords(d.root, "", "")
 	if err != nil {
 		return records, fmt.Errorf("DNSimple API call has failed: %v", err)
 	}
@@ -148,28 +148,28 @@ func (d *DNSimpleProvider) GetRecords() ([]utils.DnsRecord, error) {
 	recordMap := map[string]map[string][]string{}
 	recordTTLs := map[string]map[string]int{}
 
-	for _, zoneRecord := range recordsResponse.Data {
+	for _, rec := range recordResp {
 		var fqdn string
-		if zoneRecord.Name == "" {
+		if rec.Name == "" {
 			fqdn = d.root + "."
 		} else {
-			fqdn = fmt.Sprintf("%s.%s.", zoneRecord.Name, d.root)
+			fqdn = fmt.Sprintf("%s.%s.", rec.Name, d.root)
 		}
 
 		recordTTLs[fqdn] = map[string]int{}
-		recordTTLs[fqdn][zoneRecord.Type] = zoneRecord.TTL
+		recordTTLs[fqdn][rec.Type] = rec.TTL
 		recordSet, exists := recordMap[fqdn]
 		if exists {
-			recordSlice, sliceExists := recordSet[zoneRecord.Type]
+			recordSlice, sliceExists := recordSet[rec.Type]
 			if sliceExists {
-				recordSlice = append(recordSlice, zoneRecord.Content)
-				recordSet[zoneRecord.Type] = recordSlice
+				recordSlice = append(recordSlice, rec.Content)
+				recordSet[rec.Type] = recordSlice
 			} else {
-				recordSet[zoneRecord.Type] = []string{zoneRecord.Content}
+				recordSet[rec.Type] = []string{rec.Content}
 			}
 		} else {
 			recordMap[fqdn] = map[string][]string{}
-			recordMap[fqdn][zoneRecord.Type] = []string{zoneRecord.Content}
+			recordMap[fqdn][rec.Type] = []string{rec.Content}
 		}
 	}
 
