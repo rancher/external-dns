@@ -98,23 +98,23 @@ func (d *DNSimpleProvider) AddRecord(record utils.DnsRecord) error {
 	return nil
 }
 
-func (d *DNSimpleProvider) findRecords(record utils.DnsRecord) ([]dnsimple.ZoneRecord, error) {
-	var zoneRecords []dnsimple.ZoneRecord
+func (d *DNSimpleProvider) findRecords(record utils.DnsRecord) ([]api.Record, error) {
+	var records []api.Record
 
 	d.limiter.Wait(1)
-	recordsResponse, err := d.client2.Zones.ListRecords(d.accountID, d.root, nil)
+	resp, _, err := d.client.Domains.ListRecords(d.root, "", "")
 	if err != nil {
-		return zoneRecords, fmt.Errorf("DNSimple API call has failed: %v", err)
+		return records, fmt.Errorf("DNSimple API call has failed: %v", err)
 	}
 
 	name := d.parseName(record)
-	for _, zoneRecord := range recordsResponse.Data {
-		if zoneRecord.Name == name && zoneRecord.Type == record.Type {
-			zoneRecords = append(zoneRecords, zoneRecord)
+	for _, rec := range resp {
+		if rec.Name == name && rec.Type == record.Type {
+			records = append(records, rec)
 		}
 	}
 
-	return zoneRecords, nil
+	return records, nil
 }
 
 func (d *DNSimpleProvider) UpdateRecord(record utils.DnsRecord) error {
@@ -127,14 +127,14 @@ func (d *DNSimpleProvider) UpdateRecord(record utils.DnsRecord) error {
 }
 
 func (d *DNSimpleProvider) RemoveRecord(record utils.DnsRecord) error {
-	zoneRecords, err := d.findRecords(record)
+	records, err := d.findRecords(record)
 	if err != nil {
 		return err
 	}
 
-	for _, zoneRecord := range zoneRecords {
+	for _, rec := range records {
 		d.limiter.Wait(1)
-		_, err := d.client2.Zones.DeleteRecord(d.accountID, d.root, zoneRecord.ID)
+		_, err := d.client2.Zones.DeleteRecord(d.accountID, d.root, rec.Id)
 		if err != nil {
 			return fmt.Errorf("DNSimple API call has failed: %v", err)
 		}
