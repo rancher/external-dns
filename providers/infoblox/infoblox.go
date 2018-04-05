@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"io/ioutil"
 
 	"github.com/Sirupsen/logrus"
 	api "github.com/fanatic/go-infoblox"
@@ -14,11 +15,13 @@ import (
 )
 
 const (
-	versionURL   = "/wapi/v1.4/"
-	authURL      = "/wapi/v1.4/zone_auth"
-	recordURL    = "/wapi/v1.4/record"
-	recordTxtURL = "/wapi/v1.4/record:txt"
-	recordAURL   = "/wapi/v1.4/record:a"
+	versionURL   = "/wapi/v1.5/"
+	authURL      = versionURL + "zone_auth"
+	recordURL    = versionURL + "record"
+	recordTxtURL = versionURL + "record:txt"
+	recordAURL   = versionURL + "record:a"
+	maxResults   = "1000"
+	firstPage    = "_return_as_object=1&_max_results=" + maxResults + "&_paging=1"
 )
 
 var (
@@ -42,6 +45,11 @@ type Record struct {
 	Rec      string
 }
 
+type ResultPagination struct {
+	Page_id	string 	  `json:"next_page_id"`
+	Result 	[]*Record `json:"result"`
+}
+
 type InfobloxProvider struct {
 	client   *api.Client
 	zoneName string
@@ -52,7 +60,7 @@ func init() {
 }
 
 func (d *InfobloxProvider) Init(rootDomainName string) error {
-	var url, userName, password string
+	var url, userName, password, secretFile string
 	var sslVerify, useCookies bool
 	var err error
 	if url = os.Getenv("INFOBLOX_URL"); len(url) == 0 {
@@ -64,7 +72,21 @@ func (d *InfobloxProvider) Init(rootDomainName string) error {
 	}
 
 	if password = os.Getenv("INFOBLOX_PASSWORD"); len(password) == 0 {
-		return fmt.Errorf("INFOBLOX_PASSWORD is not set")
+		if secretFile = os.Getenv("INFOBLOX_SECRET"); len(secretFile) == 0 {
+			return fmt.Errorf("INFOBLOX_PASSWORD nor INFOBLOX_SECRET are not set")
+		}
+
+		// If password nil, using secrets
+		p, err := ioutil.ReadFile(secretFile)
+		if err != nil {
+			return fmt.Errorf("Error reading INFOBLOX_SECRET %s: %v", secretFile, err)
+		}
+		if len(p) == 0 {
+			return fmt.Errorf("Got empty password from INFOBLOX_SECRET")
+		}
+
+		logrus.Debugf("Infoblox using INFOBLOX_SECRET %s", secretFile)
+		password = string(p)
 	}
 
 	if sslVerifyStr := os.Getenv("SSL_VERIFY"); len(sslVerifyStr) == 0 {
@@ -93,14 +115,9 @@ func (d *InfobloxProvider) Init(rootDomainName string) error {
 }
 
 func (d *InfobloxProvider) validateZoneName(zoneName string) error {
-	res, err := d.client.SendRequest("GET", authURL, "", nil)
+	zoneAuths, err := d.SendRequest("GET", authURL, "", nil)
 	if err != nil {
-		return fmt.Errorf("Infoblox API call has failed, func validateZoneName, %v", err)
-	}
-
-	var zoneAuths []Record
-	if err = res.Parse(&zoneAuths); err != nil {
-		return fmt.Errorf("Infoblox API parse res failed, func validateZoneName, %v", err)
+		return fmt.Errorf("Infoblox API failed, func validateZoneName, %v", err)
 	}
 
 	for _, v := range zoneAuths {
@@ -116,9 +133,9 @@ func (*InfobloxProvider) GetName() string {
 }
 
 func (d *InfobloxProvider) HealthCheck() error {
-	maxResults := 1
+	max := 1
 	opts := &api.Options{
-		MaxResults: &maxResults,
+		MaxResults: &max,
 	}
 	_, err := d.client.RecordHost().All(opts)
 	return err
@@ -130,7 +147,7 @@ func (d *InfobloxProvider) AddRecord(record utils.DnsRecord) (err error) {
 		if url, body, err = d.prepareRecord(rec, record.Type, record.Fqdn, record.TTL); err != nil {
 			return err
 		}
-		if _, err = d.client.SendRequest("POST", url, body, head); err != nil {
+		if _, err = d.SendRequest("POST", url, body, head); err != nil {
 			if strings.Contains(err.Error(), "already exists") {
 				return nil
 			}
@@ -141,16 +158,13 @@ func (d *InfobloxProvider) AddRecord(record utils.DnsRecord) (err error) {
 }
 
 func (d *InfobloxProvider) findRecords(record utils.DnsRecord) ([]*Record, error) {
-	var records []*Record
 	url := recordURL + ":" + strings.ToLower(record.Type) + "?name=" + utils.UnFqdn(record.Fqdn) + "&zone=" + d.zoneName
-	res, err := d.client.SendRequest("GET", url, "", head)
-	if err != nil {
-		return records, fmt.Errorf("Infoblox API call has failed: %v", err)
-	}
 
-	if err = res.Parse(&records); err != nil {
+	records, err := d.SendRequest("GET", url, "", head)
+	if err != nil {
 		return records, fmt.Errorf("Infoblox API call decode has failed: %v", err)
 	}
+
 	return records, nil
 }
 
@@ -169,7 +183,7 @@ func (d *InfobloxProvider) RemoveRecord(record utils.DnsRecord) error {
 	}
 
 	for _, rec := range records {
-		if _, err := d.client.SendRequest("DELETE", versionURL+rec.Ref, "", head); err != nil {
+		if _, err := d.SendRequest("DELETE", versionURL+rec.Ref, "", head); err != nil {
 			return fmt.Errorf("Infoblox API call has failed: %v", err)
 		}
 	}
@@ -178,21 +192,14 @@ func (d *InfobloxProvider) RemoveRecord(record utils.DnsRecord) error {
 
 func (d *InfobloxProvider) GetRecords() ([]utils.DnsRecord, error) {
 	var records []utils.DnsRecord
-	res, err := d.client.SendRequest("GET", recordAURL+"?"+recordAQuery+"&zone="+d.zoneName, "", head)
+
+	recordAs, err := d.SendRequest("GET", recordAURL + "?" + recordAQuery + "&zone=" + d.zoneName, "", head)
 	if err != nil {
-		return records, fmt.Errorf("Infoblox API call has failed: %v", err)
-	}
-	var recordAs []*Record
-	if err = res.Parse(&recordAs); err != nil {
 		return records, fmt.Errorf("Infoblox API call decode has failed: %v", err)
 	}
 
-	res2, err := d.client.SendRequest("GET", recordTxtURL+"?"+recordTxtQuery+"&zone="+d.zoneName, "", head)
+	recordTxts, err := d.SendRequest("GET", recordTxtURL + "?" + recordTxtQuery + "&zone=" + d.zoneName, "", head)
 	if err != nil {
-		return records, fmt.Errorf("Infoblox API call has failed: %v", err)
-	}
-	var recordTxts []*Record
-	if err = res2.Parse(&recordTxts); err != nil {
 		return records, fmt.Errorf("Infoblox API call decode has failed: %v", err)
 	}
 
@@ -271,4 +278,61 @@ func (d *InfobloxProvider) setRecordType(ty string, records []*Record) []*Record
 		}
 	}
 	return records
+}
+
+func (d *InfobloxProvider) SendRequest(method, urlStr, body string, head map[string]string) ([]*Record, error) {
+	if urlStr == "" {
+		return nil, fmt.Errorf("SendRequest to infoblox url is nil")
+	}
+
+	if method == "GET" {
+		// Using pagination on all get requests
+		// Checking if needs '?' or '&'
+		var url string
+		if strings.Contains(urlStr, "?") {
+			url = urlStr + "&" + firstPage
+		} else {
+			url = urlStr + "?" + firstPage
+		}
+		logrus.Debugf("SendRequest to infoblox with pagination: [method]%s, [url] %s", method, url)
+
+		res, err := d.client.SendRequest(method, url, body, head)
+		if err != nil {
+			return nil, err
+		}
+
+		var result ResultPagination
+		if err = res.Parse(&result); err != nil {
+			return nil, err
+		}
+		logrus.Debugf("SendRequest infoblox get %d of %s records", len(result.Result), maxResults)
+		records := result.Result
+		for result.Page_id != "" {
+			// Adding _page_id to nextPage url
+			nextPage := url + "&_page_id=" + result.Page_id
+			logrus.Debugf("SendRequest infoblox getting next _page_id %s", result.Page_id)
+			// emptying result.Page_id
+			result.Page_id = ""
+
+			res, err := d.client.SendRequest(method, nextPage, body, head)
+			if err != nil {
+				return nil, err
+			}
+			if err = res.Parse(&result); err != nil {
+				return nil, err
+			}
+
+			logrus.Debugf("SendRequest infoblox get %d of %s records", len(result.Result), maxResults)
+			for _, record := range result.Result {
+				records = append(records, record)
+			}
+		}
+		return records, nil
+	}
+
+	logrus.Debugf("SendRequest to infoblox: [method]%s, [url] %s, [body] %s, [head] %v", method, urlStr, body)
+	_, err := d.client.SendRequest(method, urlStr, body, head)
+
+	return nil, err	
+
 }
