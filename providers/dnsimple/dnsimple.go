@@ -46,7 +46,7 @@ func (d *DNSimpleProvider) Init(rootDomainName string) error {
 	if whoamiResponse.Data.Account == nil {
 		return fmt.Errorf("DNSimple User tokens are not supported, use an Account token")
 	}
-	d.accountID = strconv.Itoa(whoamiResponse.Data.Account.ID)
+	d.accountID = strconv.FormatInt(whoamiResponse.Data.Account.ID, 10)
 
 	_, err = d.client.Zones.GetZone(d.accountID, d.root)
 	if err != nil {
