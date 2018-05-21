@@ -50,7 +50,7 @@ func (d *DNSimpleProvider) Init(rootDomainName string) error {
 
 	_, err = d.client.Zones.GetZone(d.accountID, d.root)
 	if err != nil {
-		return fmt.Errorf("Failed to get zone for '%s': %v", d.root)
+		return fmt.Errorf("Failed to get zone for '%s': %v", d.root, err)
 	}
 
 	logrus.Infof("Configured %s with zone '%s'", d.GetName(), d.root)
