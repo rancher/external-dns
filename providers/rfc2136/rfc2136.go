@@ -13,6 +13,11 @@ import (
 	"github.com/rancher/external-dns/utils"
 )
 
+const (
+	// maximum size of a UDP transport message in DNS protocol
+	udpMaxMsgSize = 512
+)
+
 type RFC2136Provider struct {
 	nameserver  string
 	zoneName    string
@@ -195,6 +200,11 @@ OuterLoop:
 func (r *RFC2136Provider) sendMessage(msg *dns.Msg) error {
 	c := new(dns.Client)
 	c.SingleInflight = true
+
+	// use TCP transport if message exceeds the UDP payload limit
+	if msg.Len() > udpMaxMsgSize {
+		c.Net = "tcp"
+	}
 
 	if !r.insecure {
 		c.TsigSecret = map[string]string{r.tsigKeyName: r.tsigSecret}
