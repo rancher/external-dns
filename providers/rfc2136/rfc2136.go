@@ -201,14 +201,14 @@ func (r *RFC2136Provider) sendMessage(msg *dns.Msg) error {
 	c := new(dns.Client)
 	c.SingleInflight = true
 
-	// use TCP transport if message exceeds the UDP payload limit
-	if msg.Len() > udpMaxMsgSize {
-		c.Net = "tcp"
-	}
-
 	if !r.insecure {
 		c.TsigSecret = map[string]string{r.tsigKeyName: r.tsigSecret}
 		msg.SetTsig(r.tsigKeyName, dns.HmacMD5, 300, time.Now().Unix())
+	}
+
+	// use TCP transport if message exceeds the UDP payload limit
+	if msg.Len() > udpMaxMsgSize {
+		c.Net = "tcp"
 	}
 
 	resp, _, err := c.Exchange(msg, r.nameserver)
